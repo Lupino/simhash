@@ -1,0 +1,9 @@
+[submodule "cxx-src/htm.core"]
+	path = cxx-src/htm.core
+	url = https://github.com/htm-community/htm.core.git
+[submodule "cxx-src/digestpp"]
+	path = cxx-src/digestpp
+	url = https://github.com/kerukuro/digestpp.git
+[submodule "cxx-src/eigen"]
+	path = cxx-src/eigen
+	url = https://gitlab.com/libeigen/eigen.git

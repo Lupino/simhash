@@ -1,0 +1,6 @@
+.stack-work
+*.txt
+*.model
+*.model.labels
+*.lock
+bin
