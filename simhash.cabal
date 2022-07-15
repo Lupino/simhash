@@ -63,7 +63,7 @@ library
                        cxx-src/htm.core/src/htm/engine/Region.cpp
                        cxx-src/htm.core/src/htm/engine/Watcher.cpp
                        cxx-src/htm.core/src/htm/engine/Link.cpp
-                       cxx-src/htm.core/src/murmurhash3/MurmurHash3.cpp
+                       cxx-src/htm.core/external/common/murmurhash3/MurmurHash3.cpp
                        cxx-src/SimHash.cpp
   hs-source-dirs:      src
   exposed-modules:     SimHash
