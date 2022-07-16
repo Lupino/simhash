@@ -60,6 +60,7 @@ cDeleteSimHash :: FunPtr (Ptr CSimHash -> IO ())
 cDeleteSimHash =
   [C.funPtr|void deleteSimHash(simhash::SimHash* sh){delete sh;}|]
 
+
 cSimHashSetup :: Ptr CSimHash -> IO ()
 cSimHashSetup ptr =
   [C.exp| void {$(simhash::SimHash* ptr)->setup()}|]
@@ -81,6 +82,16 @@ cSimHashInfer ptr str out = do
     str.resize($bs-len:str);
     $(simhash::SimHash* ptr)->infer(str, $(double* out));
   }|]
+
+
+cSimHashAddMetrics :: Ptr CSimHash -> IO ()
+cSimHashAddMetrics ptr =
+  [C.exp| void {$(simhash::SimHash* ptr)->addMetrics()}|]
+
+
+cSimHashShowMetrics :: Ptr CSimHash -> IO ()
+cSimHashShowMetrics ptr =
+  [C.exp| void {$(simhash::SimHash* ptr)->showMetrics()}|]
 
 
 cSimHashSaveToFile :: Ptr CSimHash -> ByteString -> IO ()
@@ -114,7 +125,7 @@ setup sh = withSimHash sh cSimHashSetup
 
 
 withSimHash :: SimHash -> (Ptr CSimHash -> IO a) -> IO a
-withSimHash (SimHash fptr) f = withForeignPtr fptr f
+withSimHash (SimHash fptr) = withForeignPtr fptr
 
 
 learn :: SimHash -> ByteString -> Int -> IO ()
@@ -129,6 +140,14 @@ infer sh str size =
     allocaArray size $ \out -> do
       cSimHashInfer ptr str out
       map realToFrac <$> peekArray size out
+
+
+addMetrics :: SimHash -> IO ()
+addMetrics sh = withSimHash sh cSimHashAddMetrics
+
+
+showMetrics :: SimHash -> IO ()
+showMetrics sh = withSimHash sh cSimHashShowMetrics
 
 
 saveToFile :: SimHash -> ByteString -> IO ()
@@ -178,6 +197,8 @@ readLineAndDo path f = do
 
 train :: SimHashModel -> FilePath -> IO ()
 train SimHashModel {..} dataFile = do
+  countH <- newTVarIO 0
+  addMetrics model
   readLineAndDo dataFile $ \label str -> do
     idx <- atomically $ do
       labels <- readTVar modelLabels
@@ -188,6 +209,12 @@ train SimHashModel {..} dataFile = do
           pure $ length labels
 
     learn model (encodeUtf8 str) idx
+    count <- atomically $ do
+      c <- readTVar countH
+      writeTVar countH $! c + 1
+      return c
+
+    when (count `mod` 1000 == 0) $ showMetrics model
 
   saveToFile model . encodeUtf8 $ T.pack modelFile
   labels <- readTVarIO modelLabels

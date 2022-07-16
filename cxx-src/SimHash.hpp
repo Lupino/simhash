@@ -4,6 +4,7 @@
 #include <htm/algorithms/SDRClassifier.hpp>
 #include <htm/encoders/SimHashDocumentEncoder.hpp>
 #include <htm/types/Serializable.hpp>
+#include <htm/utils/SdrMetrics.hpp>
 
 namespace simhash {
 
@@ -18,11 +19,16 @@ class SimHash : public Serializable {
     SDR encoderOutput;
     SDR spOutput;
 
+    Metrics encoderOutputStats;
+    Metrics spOutputStats;
+
   public:
     SimHash();
     void setup();
     void learn(const std::string input, const UInt categoryIdx);
     void infer(const std::string input, double* out);
+    void addMetrics();
+    void showMetrics();
 
     CerealAdapter;
     template<class Archive>

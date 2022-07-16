@@ -5,12 +5,15 @@ namespace simhash {
 using namespace std;
 using namespace htm;
 
-SimHash::SimHash() {
+SimHash::SimHash():
+  encoderOutputStats({600}, 1024),
+  spOutputStats({1600}, 1024)
+{
   SimHashDocumentEncoderParameters encoderParameters;
   encoderParameters.size = 600;
   encoderParameters.sparsity = 0.2;
   encoder.initialize(encoderParameters);
-  encoderOutput.initialize({encoderParameters.size});
+  encoderOutput.initialize({600});
   spOutput.initialize({1600});
 }
 
@@ -53,4 +56,15 @@ void SimHash::infer(const std::string input, double* out) {
       out[i] = ret[i];
   }
 }
+
+void SimHash::addMetrics() {
+  encoderOutputStats.addData(encoderOutput);
+  spOutputStats.addData(spOutput);
+}
+
+void SimHash::showMetrics() {
+  cout << "encoderStats " << encoderOutputStats << endl;
+  cout << "spStats " << spOutputStats << endl;
+}
+
 }
