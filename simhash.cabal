@@ -14,57 +14,60 @@ build-type:          Simple
 extra-source-files:  README.md
 
 library
-  extra-libraries:     boost_filesystem
+  if os(darwin)
+    extra-libraries:     boost_filesystem
   include-dirs:        cxx-src
                        cxx-src/digestpp
                        cxx-src/eigen
+                       cxx-src/cereal/include
                        cxx-src/htm.core/src
                        cxx-src/htm.core/external/common
-  cxx-sources:         cxx-src/htm.core/src/htm/regions/FileInputRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/DatabaseRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/SPRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/ScalarEncoderRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/ClassifierRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/TestNode.cpp
-                       cxx-src/htm.core/src/htm/regions/FileOutputRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/TMRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/RDSEEncoderRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/DateEncoderRegion.cpp
-                       cxx-src/htm.core/src/htm/regions/VectorFile.cpp
-                       cxx-src/htm.core/src/htm/types/Sdr.cpp
-                       cxx-src/htm.core/src/htm/ntypes/ArrayBase.cpp
-                       cxx-src/htm.core/src/htm/ntypes/BasicType.cpp
-                       cxx-src/htm.core/src/htm/ntypes/Value.cpp
-                       cxx-src/htm.core/src/htm/algorithms/AnomalyLikelihood.cpp
+  cxx-sources:         cxx-src/htm.core/src/htm/types/Sdr.cpp
+                       -- cxx-src/htm.core/src/htm/algorithms/AnomalyLikelihood.cpp
                        cxx-src/htm.core/src/htm/algorithms/Connections.cpp
                        cxx-src/htm.core/src/htm/algorithms/SDRClassifier.cpp
-                       cxx-src/htm.core/src/htm/algorithms/TemporalMemory.cpp
-                       cxx-src/htm.core/src/htm/algorithms/Anomaly.cpp
+                       -- cxx-src/htm.core/src/htm/algorithms/TemporalMemory.cpp
+                       -- cxx-src/htm.core/src/htm/algorithms/Anomaly.cpp
                        cxx-src/htm.core/src/htm/algorithms/SpatialPooler.cpp
                        cxx-src/htm.core/src/htm/utils/Random.cpp
-                       cxx-src/htm.core/src/htm/utils/MovingAverage.cpp
+                       -- cxx-src/htm.core/src/htm/utils/MovingAverage.cpp
                        cxx-src/htm.core/src/htm/utils/Topology.cpp
-                       cxx-src/htm.core/src/htm/utils/SdrMetrics.cpp
-                       cxx-src/htm.core/src/htm/encoders/ScalarEncoder.cpp
+                       -- cxx-src/htm.core/src/htm/utils/SdrMetrics.cpp
+                       -- cxx-src/htm.core/src/htm/encoders/ScalarEncoder.cpp
                        cxx-src/htm.core/src/htm/encoders/SimHashDocumentEncoder.cpp
-                       cxx-src/htm.core/src/htm/encoders/DateEncoder.cpp
-                       cxx-src/htm.core/src/htm/encoders/RandomDistributedScalarEncoder.cpp
-                       cxx-src/htm.core/src/htm/os/Timer.cpp
+                       -- cxx-src/htm.core/src/htm/encoders/DateEncoder.cpp
+                       -- cxx-src/htm.core/src/htm/encoders/RandomDistributedScalarEncoder.cpp
                        cxx-src/htm.core/src/htm/os/Directory.cpp
-                       cxx-src/htm.core/src/htm/os/Env.cpp
                        cxx-src/htm.core/src/htm/os/Path.cpp
-                       cxx-src/htm.core/src/htm/engine/Network.cpp
-                       cxx-src/htm.core/src/htm/engine/Input.cpp
-                       cxx-src/htm.core/src/htm/engine/Output.cpp
-                       cxx-src/htm.core/src/htm/engine/Spec.cpp
-                       cxx-src/htm.core/src/htm/engine/RegionImpl.cpp
-                       cxx-src/htm.core/src/htm/engine/RESTapi.cpp
-                       cxx-src/htm.core/src/htm/engine/RegionImplFactory.cpp
-                       cxx-src/htm.core/src/htm/engine/Region.cpp
-                       cxx-src/htm.core/src/htm/engine/Watcher.cpp
-                       cxx-src/htm.core/src/htm/engine/Link.cpp
-                       cxx-src/htm.core/external/common/murmurhash3/MurmurHash3.cpp
+                       -- cxx-src/htm.core/src/htm/os/Timer.cpp
+                       -- cxx-src/htm.core/src/htm/os/Env.cpp
+                       -- cxx-src/htm.core/src/htm/ntypes/ArrayBase.cpp
+                       -- cxx-src/htm.core/src/htm/ntypes/BasicType.cpp
+                       -- cxx-src/htm.core/src/htm/ntypes/Value.cpp
+                       -- cxx-src/htm.core/src/htm/engine/Network.cpp
+                       -- cxx-src/htm.core/src/htm/engine/Input.cpp
+                       -- cxx-src/htm.core/src/htm/engine/Output.cpp
+                       -- cxx-src/htm.core/src/htm/engine/Spec.cpp
+                       -- cxx-src/htm.core/src/htm/engine/RegionImpl.cpp
+                       -- cxx-src/htm.core/src/htm/engine/RESTapi.cpp
+                       -- cxx-src/htm.core/src/htm/engine/RegionImplFactory.cpp
+                       -- cxx-src/htm.core/src/htm/engine/Region.cpp
+                       -- cxx-src/htm.core/src/htm/engine/Watcher.cpp
+                       -- cxx-src/htm.core/src/htm/engine/Link.cpp
+                       -- cxx-src/htm.core/src/htm/regions/FileInputRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/DatabaseRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/SPRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/ScalarEncoderRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/ClassifierRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/TestNode.cpp
+                       -- cxx-src/htm.core/src/htm/regions/FileOutputRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/TMRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/RDSEEncoderRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/DateEncoderRegion.cpp
+                       -- cxx-src/htm.core/src/htm/regions/VectorFile.cpp
+                       -- cxx-src/htm.core/external/common/murmurhash3/MurmurHash3.cpp
                        cxx-src/SimHash.cpp
+                       cxx-src/MyLog.cpp
   hs-source-dirs:      src
   exposed-modules:     SimHash
   build-depends:       base >= 4.7 && < 5
@@ -78,6 +81,7 @@ library
 
                      , mtl
                      , unliftio
+                     -- , direct-sqlite
   default-language:    Haskell2010
 
 executable simhash-train
