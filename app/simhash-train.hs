@@ -6,7 +6,8 @@ module Main
   ) where
 
 import           Options.Applicative
-import           SimHash             (loadModel, test, train)
+import           SimHash             (emptyStats, loadModel, saveStatsToFile,
+                                      test, train)
 
 data Options = Options
   { dataFile  :: FilePath
@@ -49,6 +50,6 @@ main = execParser opts >>= program
 program :: Options -> IO ()
 program Options{..} = do
   model <- loadModel modelFile
-  train model dataFile
-  score <- test model testFile
-  print score
+  stats0 <- train model emptyStats dataFile
+  stats1 <- test model stats0 testFile
+  saveStatsToFile (modelFile ++ ".stats.json") stats1

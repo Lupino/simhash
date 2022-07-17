@@ -8,6 +8,9 @@ module SimHash
   , test
   , SimHashModel
   , loadModel
+  , Stats
+  , emptyStats
+  , saveStatsToFile
 
   , RunnerQueue
   , newRunnerQueue
@@ -19,9 +22,10 @@ module SimHash
 import           Control.Exception     (mask_)
 import           Control.Monad         (forever, unless, void, when)
 import           Control.Monad.Cont    (callCC, lift, runContT)
-import           Data.Aeson            (encode)
+import           Data.Aeson            (ToJSON (..), encode, object, (.=))
 import           Data.ByteString       (ByteString)
 import           Data.ByteString.Lazy  (toStrict)
+import qualified Data.ByteString.Lazy  as LB (writeFile)
 import           Data.Int              (Int64)
 import           Data.List             (elemIndex, sortBy)
 import           Data.Text             (Text)
@@ -179,7 +183,7 @@ loadModel modelFile = do
     labels <- T.split (=='\n') . T.strip <$> T.readFile (modelFile ++ ".labels")
     atomically $ writeTVar modelLabels labels
 
-  return SimHashModel {..}
+  pure SimHashModel {..}
 
 
 readLineAndDo :: FilePath -> (Text -> Text -> IO ()) -> IO ()
@@ -208,10 +212,58 @@ prettyTime t0
         h = floor $ fromIntegral t1 / 60
 
 
-train :: SimHashModel -> FilePath -> IO ()
-train SimHashModel {..} dataFile = do
+data Stats = Stats
+  { trainCount      :: Int
+  , testCount       :: Int
+  , trainStartedAt  :: Int64
+  , trainFinishedAt :: Int64
+  , trainSpent      :: String
+  , testStartedAt   :: Int64
+  , testFinishedAt  :: Int64
+  , testSpent       :: String
+  , testScore       :: Int
+  }
+  deriving (Show)
+
+
+emptyStats :: Stats
+emptyStats = Stats
+  { trainCount      = 0
+  , testCount       = 0
+  , trainStartedAt  = 0
+  , trainFinishedAt = 0
+  , trainSpent      = ""
+  , testStartedAt   = 0
+  , testFinishedAt  = 0
+  , testSpent       = ""
+  , testScore       = 0
+  }
+
+
+instance ToJSON Stats where
+  toJSON Stats {..} = object
+    [ "train_count"       .= trainCount
+    , "test_count"        .= testCount
+    , "started_at"        .= trainStartedAt
+    , "train_started_at"  .= trainStartedAt
+    , "train_iter"        .= trainCount
+    , "train_finished_at" .= trainFinishedAt
+    , "test_started_at"   .= testStartedAt
+    , "test_iter"         .= testCount
+    , "test_finished_at"  .= testFinishedAt
+    , "score"             .= testScore
+    , "finished_at"       .= testFinishedAt
+    ]
+
+
+saveStatsToFile :: FilePath -> Stats -> IO ()
+saveStatsToFile path = LB.writeFile path . encode
+
+
+train :: SimHashModel -> Stats -> FilePath -> IO Stats
+train SimHashModel {..} stats dataFile = do
   countH <- newTVarIO 0
-  startTime <- getEpochTime
+  startedAt <- getEpochTime
   readLineAndDo dataFile $ \label str -> do
     idx <- atomically $ do
       labels <- readTVar modelLabels
@@ -226,22 +278,30 @@ train SimHashModel {..} dataFile = do
     count <- atomically $ do
       c <- readTVar countH
       writeTVar countH $! c + 1
-      return c
+      pure c
 
-    when (count `mod` 1024 == 0) $ showTrainStats startTime count
+    when (count `mod` 1024 == 0) $ showTrainStats startedAt count
 
   count <- readTVarIO countH
-  showTrainStats startTime count
+  showTrainStats startedAt count
+  finishedAt <- getEpochTime
 
   saveToFile model . encodeUtf8 $ T.pack modelFile
   labels <- readTVarIO modelLabels
   T.writeFile (modelFile ++ ".labels") $ T.intercalate "\n" labels
 
+  pure stats
+    { trainCount = count
+    , trainStartedAt = startedAt
+    , trainFinishedAt = finishedAt
+    , trainSpent = prettyTime (finishedAt - startedAt)
+    }
+
   where showTrainStats :: Int64 -> Int -> IO ()
-        showTrainStats startTime count = do
+        showTrainStats startedAt count = do
           now <- getEpochTime
           putStrLn $ "Train iters " ++ show count
-          putStrLn $ "Train spent " ++ prettyTime (now - startTime)
+          putStrLn $ "Train spent " ++ prettyTime (now - startedAt)
           showMetrics model
 
 
@@ -254,13 +314,13 @@ argmax = go 0 0 0.0
           | otherwise = go (c + 1) c x xs
 
 
-test :: SimHashModel -> FilePath -> IO Double
-test SimHashModel {..} testFile = do
+test :: SimHashModel -> Stats -> FilePath -> IO Stats
+test SimHashModel {..} stats testFile = do
   totalH <- newTVarIO 0
   rightH <- newTVarIO 0
   labels <- readTVarIO modelLabels
   let size = length labels
-  startTime <- getEpochTime
+  startedAt <- getEpochTime
 
   readLineAndDo testFile $ \label str -> do
     infers <- infer model (encodeUtf8 str) size
@@ -272,20 +332,29 @@ test SimHashModel {..} testFile = do
           when (argmax infers == idx) $ modifyTVar' rightH (+1)
 
     total <- readTVarIO totalH
-    when (total `mod` 1024 == 0) $ showTestStats startTime totalH rightH
+    when (total `mod` 1024 == 0) $ showTestStats startedAt totalH rightH
 
-  showTestStats startTime totalH rightH
+  showTestStats startedAt totalH rightH
+  finishedAt <- getEpochTime
   right <- fromIntegral <$> readTVarIO rightH
   total <- fromIntegral <$> readTVarIO totalH
-  pure $ right / total
+
+  pure stats
+    { testCount = total
+    , testStartedAt = startedAt
+    , testFinishedAt = finishedAt
+    , testScore = floor (fromIntegral right * 10000 / fromIntegral total)
+    , testSpent = prettyTime (finishedAt - startedAt)
+    }
+
   where showTestStats :: Int64 -> TVar Int -> TVar Int -> IO ()
-        showTestStats startTime totalH rightH = do
+        showTestStats startedAt totalH rightH = do
           now <- getEpochTime
           right <- readTVarIO rightH
           total <- readTVarIO totalH
           putStrLn $ "Test iters " ++ show total
           putStrLn $ "Test score " ++ show (fromIntegral right / fromIntegral total)
-          putStrLn $ "Test spent " ++ prettyTime (now - startTime)
+          putStrLn $ "Test spent " ++ prettyTime (now - startedAt)
 
 
 data QueueItem = QueueItem
@@ -309,7 +378,7 @@ data InferRunner = InferRunner
 newInferRunner :: RunnerQueue -> FilePath -> IO InferRunner
 newInferRunner runnerQueue path = do
   runnerModel <- loadModel path
-  return InferRunner {..}
+  pure InferRunner {..}
 
 
 runInferRunner :: InferRunner -> IO ()
