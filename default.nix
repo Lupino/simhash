@@ -43,7 +43,7 @@ in pkgs.haskell-nix.cabalProject {
     };
     index-state = "2022-07-15T00:00:00Z";
     index-sha256 = "03b52bfba257b1106cf591fa4300abff1285735698cf532d274736ae4e394663";
-    plan-sha256 = if compiler-nix-name == "ghc922" then "1i0rqy3krfcg9jlpfgjr5c47w23kqslqiaifbfv6wz4lhnj5zgkl" else null;
+    plan-sha256 = if compiler-nix-name == "ghc922" then "13d2w9jhwxx4pza3rksq7vibbg7sqfyv83apjjs0p06cnmwvcx28" else null;
     materialized = if compiler-nix-name == "ghc922" then ./nix/materialized else null;
     # Specify the GHC version to use.
     compiler-nix-name = compiler-nix-name;

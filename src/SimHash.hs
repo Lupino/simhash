@@ -22,6 +22,7 @@ import           Control.Monad.Cont    (callCC, lift, runContT)
 import           Data.Aeson            (encode)
 import           Data.ByteString       (ByteString)
 import           Data.ByteString.Lazy  (toStrict)
+import           Data.Int              (Int64)
 import           Data.List             (elemIndex, sortBy)
 import           Data.Text             (Text)
 import qualified Data.Text             as T (drop, intercalate, length, null,
@@ -33,6 +34,7 @@ import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
 import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import qualified Language.C.Inline.Cpp as C
+import           Metro.Utils           (getEpochTime)
 import           Periodic.Job          (JobM, workDone_, workload)
 import           System.Directory      (doesFileExist)
 import           System.IO             (IOMode (ReadMode), hClose, hIsEOF,
@@ -195,10 +197,21 @@ readLineAndDo path f = do
   hClose h
 
 
+prettyTime :: Int64 -> String
+prettyTime t0
+  | h > 0 = show h ++ "h " ++ show m ++ "m " ++ show s ++ "s"
+  | m > 0 = show m ++ "m " ++ show s ++ "s"
+  | otherwise = show s ++ "s"
+  where s = t0 `mod` 60
+        t1 = floor $ fromIntegral t0 / 60
+        m = t1 `mod` 60
+        h = floor $ fromIntegral t1 / 60
+
+
 train :: SimHashModel -> FilePath -> IO ()
 train SimHashModel {..} dataFile = do
   countH <- newTVarIO 0
-  addMetrics model
+  startTime <- getEpochTime
   readLineAndDo dataFile $ \label str -> do
     idx <- atomically $ do
       labels <- readTVar modelLabels
@@ -209,16 +222,27 @@ train SimHashModel {..} dataFile = do
           pure $ length labels
 
     learn model (encodeUtf8 str) idx
+    addMetrics model
     count <- atomically $ do
       c <- readTVar countH
       writeTVar countH $! c + 1
       return c
 
-    when (count `mod` 1000 == 0) $ showMetrics model
+    when (count `mod` 1024 == 0) $ showTrainStats startTime count
+
+  count <- readTVarIO countH
+  showTrainStats startTime count
 
   saveToFile model . encodeUtf8 $ T.pack modelFile
   labels <- readTVarIO modelLabels
   T.writeFile (modelFile ++ ".labels") $ T.intercalate "\n" labels
+
+  where showTrainStats :: Int64 -> Int -> IO ()
+        showTrainStats startTime count = do
+          now <- getEpochTime
+          putStrLn $ "Train iters " ++ show count
+          putStrLn $ "Train spent " ++ prettyTime (now - startTime)
+          showMetrics model
 
 
 argmax :: [Double] -> Int
@@ -236,6 +260,7 @@ test SimHashModel {..} testFile = do
   rightH <- newTVarIO 0
   labels <- readTVarIO modelLabels
   let size = length labels
+  startTime <- getEpochTime
 
   readLineAndDo testFile $ \label str -> do
     infers <- infer model (encodeUtf8 str) size
@@ -246,9 +271,21 @@ test SimHashModel {..} testFile = do
         Just idx ->
           when (argmax infers == idx) $ modifyTVar' rightH (+1)
 
-  right <- readTVarIO rightH
-  total <- readTVarIO totalH
+    total <- readTVarIO totalH
+    when (total `mod` 1024 == 0) $ showTestStats startTime totalH rightH
+
+  showTestStats startTime totalH rightH
+  right <- fromIntegral <$> readTVarIO rightH
+  total <- fromIntegral <$> readTVarIO totalH
   pure $ right / total
+  where showTestStats :: Int64 -> TVar Int -> TVar Int -> IO ()
+        showTestStats startTime totalH rightH = do
+          now <- getEpochTime
+          right <- readTVarIO rightH
+          total <- readTVarIO totalH
+          putStrLn $ "Test iters " ++ show total
+          putStrLn $ "Test score " ++ show (fromIntegral right / fromIntegral total)
+          putStrLn $ "Test spent " ++ prettyTime (now - startTime)
 
 
 data QueueItem = QueueItem

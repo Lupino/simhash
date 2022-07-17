@@ -35,6 +35,7 @@
         depends = [
           (hsPkgs."base" or (errorHandler.buildDepError "base"))
           (hsPkgs."periodic-client" or (errorHandler.buildDepError "periodic-client"))
+          (hsPkgs."metro" or (errorHandler.buildDepError "metro"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
           (hsPkgs."aeson" or (errorHandler.buildDepError "aeson"))
           (hsPkgs."text" or (errorHandler.buildDepError "text"))
@@ -44,6 +45,7 @@
           (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
           (hsPkgs."unliftio" or (errorHandler.buildDepError "unliftio"))
           ];
+        libs = (pkgs.lib).optional (system.isOsx) (pkgs."boost_filesystem" or (errorHandler.sysDepError "boost_filesystem"));
         buildable = true;
         modules = [ "SimHash" ];
         cxxSources = [
@@ -53,10 +55,10 @@
           "cxx-src/htm.core/src/htm/algorithms/SpatialPooler.cpp"
           "cxx-src/htm.core/src/htm/utils/Random.cpp"
           "cxx-src/htm.core/src/htm/utils/Topology.cpp"
+          "cxx-src/htm.core/src/htm/utils/SdrMetrics.cpp"
           "cxx-src/htm.core/src/htm/encoders/SimHashDocumentEncoder.cpp"
           "cxx-src/htm.core/src/htm/os/Directory.cpp"
           "cxx-src/htm.core/src/htm/os/Path.cpp"
-          "cxx-src/htm.core/external/common/murmurhash3/MurmurHash3.cpp"
           "cxx-src/SimHash.cpp"
           "cxx-src/MyLog.cpp"
           ];
