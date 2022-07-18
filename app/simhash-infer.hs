@@ -5,7 +5,7 @@ module Main
   ( main
   ) where
 
-import           Control.Monad       (replicateM, void)
+import           Control.Monad       (replicateM_)
 import           Data.String         (fromString)
 import           Options.Applicative
 import           Periodic.Worker     (addFunc, startWorkerM, work)
@@ -67,7 +67,7 @@ main = execParser opts >>= program
 program :: Options -> IO ()
 program Options{..} = do
   queue <- newRunnerQueue
-  void $ replicateM runnerSize $ startInferRunner queue modelFile
+  replicateM_ runnerSize $ startInferRunner queue modelFile
   startWorkerM host $ do
     addFunc (fromString modelName) $ simHashTask queue
     work threadSize
