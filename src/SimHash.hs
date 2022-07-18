@@ -365,7 +365,7 @@ data QueueItem = QueueItem
 
 type RunnerQueue = TQueue QueueItem
 
-newRunnerQueue :: IO RunnerQueue
+newRunnerQueue :: IO (TQueue RunnerQueue)
 newRunnerQueue = newTQueueIO
 
 
@@ -395,16 +395,23 @@ runInferRunner InferRunner {..} = do
     $ zip labels infers
 
 
-startInferRunner :: RunnerQueue -> FilePath -> IO (Async ())
-startInferRunner queue path = do
+startInferRunner :: TQueue RunnerQueue -> FilePath -> IO (Async ())
+startInferRunner tqueue path = do
+  queue <- newTQueueIO
+  atomically $ writeTQueue tqueue queue
   runner <- newInferRunner queue path
   async $ forever $ runInferRunner runner
 
 
-simHashTask :: RunnerQueue -> JobM ()
-simHashTask queue = do
+simHashTask :: TQueue RunnerQueue -> JobM ()
+simHashTask tqueue = do
   itemMsg <- workload
   itemRet <- newEmptyTMVarIO
-  atomically $ writeTQueue queue QueueItem {..}
+
+  atomically $ do
+    queue <- readTQueue tqueue
+    writeTQueue queue QueueItem {..}
+    writeTQueue tqueue queue
+
   ret <- atomically $ takeTMVar itemRet
   workDone_ $ toStrict $ encode ret
