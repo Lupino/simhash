@@ -407,11 +407,8 @@ simHashTask :: TQueue RunnerQueue -> JobM ()
 simHashTask tqueue = do
   itemMsg <- workload
   itemRet <- newEmptyTMVarIO
-
-  atomically $ do
-    queue <- readTQueue tqueue
-    writeTQueue queue QueueItem {..}
-    writeTQueue tqueue queue
-
+  queue <- atomically $ readTQueue tqueue
+  atomically $ writeTQueue queue QueueItem {..}
+  atomically $ writeTQueue tqueue queue
   ret <- atomically $ takeTMVar itemRet
   workDone_ $ toStrict $ encode ret
