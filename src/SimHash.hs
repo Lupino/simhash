@@ -14,7 +14,7 @@ module SimHash
 
   , RunnerQueue
   , newRunnerQueue
-  , startInferRunner
+  , startRunner
   , inferTask
   ) where
 
@@ -369,20 +369,20 @@ newRunnerQueue :: IO (TQueue RunnerQueue)
 newRunnerQueue = newTQueueIO
 
 
-data InferRunner = InferRunner
+data Runner = Runner
   { runnerModel :: SimHashModel
   , runnerQueue :: RunnerQueue
   }
 
 
-newInferRunner :: RunnerQueue -> FilePath -> IO InferRunner
-newInferRunner runnerQueue path = do
+newRunner :: RunnerQueue -> FilePath -> IO Runner
+newRunner runnerQueue path = do
   runnerModel <- loadModel path
-  pure InferRunner {..}
+  pure Runner {..}
 
 
-runInferRunner :: InferRunner -> IO ()
-runInferRunner InferRunner {..} = do
+runRunner :: Runner -> IO ()
+runRunner Runner {..} = do
   QueueItem {..} <- atomically $ readTQueue runnerQueue
   labels <- readTVarIO $ modelLabels runnerModel
   let size = length labels
@@ -395,12 +395,12 @@ runInferRunner InferRunner {..} = do
     $ zip labels infers
 
 
-startInferRunner :: TQueue RunnerQueue -> FilePath -> IO (Async ())
-startInferRunner tqueue path = do
+startRunner :: TQueue RunnerQueue -> FilePath -> IO (Async ())
+startRunner tqueue path = do
   queue <- newTQueueIO
   atomically $ writeTQueue tqueue queue
-  runner <- newInferRunner queue path
-  async $ forever $ runInferRunner runner
+  runner <- newRunner queue path
+  async $ forever $ runRunner runner
 
 
 inferTask :: TQueue RunnerQueue -> JobM ()

@@ -9,8 +9,7 @@ import           Control.Monad       (replicateM_)
 import           Data.String         (fromString)
 import           Options.Applicative
 import           Periodic.Worker     (addFunc, startWorkerM, work)
-import           SimHash             (inferTask, newRunnerQueue,
-                                      startInferRunner)
+import           SimHash             (inferTask, newRunnerQueue, startRunner)
 
 data Options = Options
   { modelName  :: String
@@ -67,7 +66,7 @@ main = execParser opts >>= program
 program :: Options -> IO ()
 program Options{..} = do
   queue <- newRunnerQueue
-  replicateM_ runnerSize $ startInferRunner queue modelFile
+  replicateM_ runnerSize $ startRunner queue modelFile
   startWorkerM host $ do
     addFunc (fromString modelName) $ inferTask queue
     work threadSize
