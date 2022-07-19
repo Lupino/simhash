@@ -14,13 +14,17 @@ module SimHash
 
   , RunnerQueue
   , newRunnerQueue
+  , readRunnerQueue
   , startRunner
+  , startSaver
+
   , inferTask
+  , inferLearnTask
   ) where
 
 
 import           Control.Exception     (mask_)
-import           Control.Monad         (forever, unless, void, when)
+import           Control.Monad         (forM_, forever, unless, void, when)
 import           Control.Monad.Cont    (callCC, lift, runContT)
 import           Data.Aeson            (ToJSON (..), encode, object, (.=))
 import           Data.ByteString       (ByteString)
@@ -30,7 +34,8 @@ import           Data.Int              (Int64)
 import           Data.List             (elemIndex, sortBy)
 import           Data.Text             (Text)
 import qualified Data.Text             as T (drop, intercalate, length, null,
-                                             pack, split, strip, takeWhile)
+                                             pack, split, strip, take,
+                                             takeWhile)
 import           Data.Text.Encoding    (encodeUtf8)
 import qualified Data.Text.IO          as T (hGetLine, readFile, writeFile)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
@@ -39,16 +44,16 @@ import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import qualified Language.C.Inline.Cpp as C
 import           Metro.Utils           (getEpochTime)
-import           Periodic.Job          (JobM, workDone_, workload)
+import           Periodic.Job          (JobM, workDone, workDone_, workload)
 import           System.Directory      (doesFileExist)
 import           System.IO             (IOMode (ReadMode), hClose, hIsEOF,
                                         openFile)
-import           UnliftIO              (Async, TMVar, TQueue, TVar, async,
-                                        atomically, modifyTVar',
+import           UnliftIO              (Async, MonadIO, TMVar, TQueue, TVar,
+                                        async, atomically, modifyTVar',
                                         newEmptyTMVarIO, newTQueueIO, newTVarIO,
                                         readTQueue, readTVar, readTVarIO,
-                                        takeTMVar, tryPutTMVar, writeTQueue,
-                                        writeTVar)
+                                        registerDelay, retrySTM, takeTMVar,
+                                        tryPutTMVar, writeTQueue, writeTVar)
 
 data CSimHash
 
@@ -186,15 +191,19 @@ loadModel modelFile = do
   pure SimHashModel {..}
 
 
+splitLabelAndMsg :: Text -> (Text, Text)
+splitLabelAndMsg msg = (label, str)
+  where label = T.strip $ T.takeWhile (/=',') msg
+        str   = T.strip $ T.drop (T.length label + 1) msg
+
+
 readLineAndDo :: FilePath -> (Text -> Text -> IO ()) -> IO ()
 readLineAndDo path f = do
   h <- openFile path ReadMode
   (`runContT` pure) $ callCC $ \exit -> forever $ do
     eof <- lift $ hIsEOF h
     when eof $ exit ()
-    line <- lift $ T.strip <$> T.hGetLine h
-    let label = T.strip $ T.takeWhile (/=',') line
-        str   = T.strip $ T.drop (T.length label + 1) line
+    (label, str) <- lift $ splitLabelAndMsg <$> T.hGetLine h
     unless (T.null label || T.null str) $ do
       lift $ f label str
 
@@ -260,19 +269,29 @@ saveStatsToFile :: FilePath -> Stats -> IO ()
 saveStatsToFile path = LB.writeFile path . encode
 
 
+saveModel :: SimHashModel -> IO ()
+saveModel SimHashModel {..} = do
+  saveToFile model . encodeUtf8 $ T.pack modelFile
+  labels <- readTVarIO modelLabels
+  T.writeFile (modelFile ++ ".labels") $ T.intercalate "\n" labels
+
+
+getLabelIdx :: MonadIO m => TVar [Text] -> Text -> m Int
+getLabelIdx h label = atomically $ do
+  labels <- readTVar h
+  case elemIndex label labels of
+    Just idx -> pure idx
+    Nothing -> do
+      writeTVar h $! labels ++ [label]
+      pure $ length labels
+
+
 train :: SimHashModel -> Stats -> FilePath -> IO Stats
-train SimHashModel {..} stats dataFile = do
+train shm@SimHashModel {..} stats dataFile = do
   countH <- newTVarIO 0
   startedAt <- getEpochTime
   readLineAndDo dataFile $ \label str -> do
-    idx <- atomically $ do
-      labels <- readTVar modelLabels
-      case elemIndex label labels of
-        Just idx -> pure idx
-        Nothing -> do
-          writeTVar modelLabels $! labels ++ [label]
-          pure $ length labels
-
+    idx <- getLabelIdx modelLabels label
     learn model (encodeUtf8 str) idx
     addMetrics model
     count <- atomically $ do
@@ -286,9 +305,7 @@ train SimHashModel {..} stats dataFile = do
   showTrainStats startedAt count
   finishedAt <- getEpochTime
 
-  saveToFile model . encodeUtf8 $ T.pack modelFile
-  labels <- readTVarIO modelLabels
-  T.writeFile (modelFile ++ ".labels") $ T.intercalate "\n" labels
+  saveModel shm
 
   pure stats
     { trainCount = count
@@ -358,8 +375,9 @@ test SimHashModel {..} stats testFile = do
 
 
 data QueueItem = QueueItem
-  { itemMsg :: ByteString
-  , itemRet :: TMVar [(Text, Double)]
+  { itemMsg   :: ByteString
+  , itemRet   :: Maybe (TMVar [(Text, Double)])
+  , itemLabel :: Maybe Text
   }
 
 
@@ -369,46 +387,124 @@ newRunnerQueue :: IO (TQueue RunnerQueue)
 newRunnerQueue = newTQueueIO
 
 
+readRunnerQueue :: TQueue RunnerQueue -> IO RunnerQueue
+readRunnerQueue = atomically . readTQueue
+
+
 data Runner = Runner
   { runnerModel :: SimHashModel
   , runnerQueue :: RunnerQueue
+  , runnerSaver :: TVar (Maybe (TVar Bool))
   }
 
 
 newRunner :: RunnerQueue -> FilePath -> IO Runner
 newRunner runnerQueue path = do
   runnerModel <- loadModel path
+  runnerSaver <- newTVarIO Nothing
   pure Runner {..}
 
 
 runRunner :: Runner -> IO ()
 runRunner Runner {..} = do
   QueueItem {..} <- atomically $ readTQueue runnerQueue
-  labels <- readTVarIO $ modelLabels runnerModel
-  let size = length labels
-  infers <- infer (model runnerModel) itemMsg size
-  atomically
-    . void
-    . tryPutTMVar itemRet
-    $! take 10
-    . sortBy (\(_, a) (_, b) -> compare b a)
-    $ zip labels infers
+  forM_ itemRet $ \ret -> do
+    labels <- readTVarIO labelTVar
+    let size = length labels
+    infers <- infer m itemMsg size
+    atomically
+      . void
+      . tryPutTMVar ret
+      $! take 10
+      . sortBy (\(_, a) (_, b) -> compare b a)
+      $ zip labels infers
+
+  forM_ itemLabel $ \label -> do
+    idx <- getLabelIdx labelTVar label
+    learn m itemMsg idx
+
+    doSave <- registerDelay delayUS
+    atomically $ writeTVar runnerSaver $ Just doSave
 
 
-startRunner :: TQueue RunnerQueue -> FilePath -> IO (Async ())
+  where labelTVar = modelLabels runnerModel
+        m = model runnerModel
+        delayUS = 60000000 -- 60s
+
+
+startRunner :: TQueue RunnerQueue -> FilePath -> IO (Runner, Async ())
 startRunner tqueue path = do
   queue <- newTQueueIO
   atomically $ writeTQueue tqueue queue
   runner <- newRunner queue path
-  async $ forever $ runRunner runner
+  io <- async $ forever $ runRunner runner
+  pure (runner, io)
+
+
+startSaver :: Runner -> IO (Async ())
+startSaver Runner {..} = async $ forever $ do
+  atomically $ do
+    mSaver <- readTVar runnerSaver
+    case mSaver of
+      Nothing -> retrySTM
+      Just saver -> do
+        doSave <- readTVar saver
+        unless doSave retrySTM
+
+  saveModel runnerModel
 
 
 inferTask :: TQueue RunnerQueue -> JobM ()
 inferTask tqueue = do
   itemMsg <- workload
-  itemRet <- newEmptyTMVarIO
+  iRet <- newEmptyTMVarIO
   queue <- atomically $ readTQueue tqueue
-  atomically $ writeTQueue queue QueueItem {..}
+  atomically $ writeTQueue queue QueueItem
+    { itemLabel = Nothing
+    , itemRet = Just iRet
+    , ..
+    }
   atomically $ writeTQueue tqueue queue
-  ret <- atomically $ takeTMVar itemRet
+  ret <- atomically $ takeTMVar iRet
   workDone_ $ toStrict $ encode ret
+
+
+doInferLearnTask :: Text -> Text -> RunnerQueue -> JobM ()
+doInferLearnTask "0" msg queue = do
+  iRet    <- newEmptyTMVarIO
+  atomically $ writeTQueue queue QueueItem
+    { itemLabel = Nothing
+    , itemRet = Just iRet
+    , itemMsg = encodeUtf8 msg
+    }
+  ret <- atomically $ takeTMVar iRet
+  workDone_ $ toStrict $ encode ret
+
+doInferLearnTask "1" msg queue = do
+  atomically $ writeTQueue queue QueueItem
+    { itemLabel = Just label
+    , itemRet   = Nothing
+    , itemMsg   = encodeUtf8 str
+    }
+  workDone
+  where (label, str) = splitLabelAndMsg msg
+
+doInferLearnTask _ msg queue = do
+  iRet    <- newEmptyTMVarIO
+  atomically $ writeTQueue queue QueueItem
+    { itemLabel = Just label
+    , itemRet   = Just iRet
+    , itemMsg   = encodeUtf8 str
+    }
+  ret <- atomically $ takeTMVar iRet
+  workDone_ $ toStrict $ encode ret
+  where (label, str) = splitLabelAndMsg msg
+
+
+-- 0msg         only infer
+-- 1label,msg   only learn
+-- 2label,msg   learn and infer
+inferLearnTask :: RunnerQueue -> JobM ()
+inferLearnTask queue = do
+  msg <- workload
+  doInferLearnTask (T.take 1 msg) (T.drop 1 msg) queue
