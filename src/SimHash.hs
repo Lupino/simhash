@@ -15,7 +15,7 @@ module SimHash
   , RunnerQueue
   , newRunnerQueue
   , startInferRunner
-  , simHashTask
+  , inferTask
   ) where
 
 
@@ -403,8 +403,8 @@ startInferRunner tqueue path = do
   async $ forever $ runInferRunner runner
 
 
-simHashTask :: TQueue RunnerQueue -> JobM ()
-simHashTask tqueue = do
+inferTask :: TQueue RunnerQueue -> JobM ()
+inferTask tqueue = do
   itemMsg <- workload
   itemRet <- newEmptyTMVarIO
   queue <- atomically $ readTQueue tqueue
