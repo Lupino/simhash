@@ -48,7 +48,7 @@
         "mtl".revision = (((hackage."mtl")."2.2.2").revisions).default;
         "OneTuple".revision = (((hackage."OneTuple")."0.3.1").revisions).default;
         "parsec".revision = (((hackage."parsec")."3.1.15.0").revisions).default;
-        "bytestring".revision = (((hackage."bytestring")."0.11.3.0").revisions).default;
+        "bytestring".revision = (((hackage."bytestring")."0.11.3.1").revisions).default;
         "strict".revision = (((hackage."strict")."0.4.0.1").revisions).default;
         "strict".flags.assoc = true;
         "aeson".revision = (((hackage."aeson")."2.0.3.0").revisions).default;
@@ -67,7 +67,7 @@
         "ghc-prim".revision = (((hackage."ghc-prim")."0.8.0").revisions).default;
         "hslogger".revision = (((hackage."hslogger")."1.3.1.0").revisions).default;
         "hslogger".flags.network--gt-3_0_0 = true;
-        "ghc-boot-th".revision = (((hackage."ghc-boot-th")."9.2.2").revisions).default;
+        "ghc-boot-th".revision = (((hackage."ghc-boot-th")."9.2.3").revisions).default;
         "indexed-traversable".revision = (((hackage."indexed-traversable")."0.1.2").revisions).default;
         "distributive".revision = (((hackage."distributive")."0.6.2.1").revisions).default;
         "distributive".flags.tagged = true;
@@ -77,7 +77,7 @@
         "bifunctors".revision = (((hackage."bifunctors")."5.5.12").revisions).default;
         "bifunctors".flags.tagged = true;
         "bifunctors".flags.semigroups = true;
-        "base".revision = (((hackage."base")."4.16.1.0").revisions).default;
+        "base".revision = (((hackage."base")."4.16.2.0").revisions).default;
         "time".revision = (((hackage."time")."1.11.1.1").revisions).default;
         "async".revision = (((hackage."async")."2.2.4").revisions).default;
         "async".flags.bench = false;
@@ -152,8 +152,8 @@
         "colour".revision = (((hackage."colour")."2.3.6").revisions).default;
         };
       compiler = {
-        version = "9.2.2";
-        nix-name = "ghc922";
+        version = "9.2.3";
+        nix-name = "ghc923";
         packages = {
           "pretty" = "1.1.3.6";
           "text" = "1.2.5.0";
@@ -161,12 +161,12 @@
           "Cabal" = "3.6.3.0";
           "mtl" = "2.2.2";
           "parsec" = "3.1.15.0";
-          "bytestring" = "0.11.3.0";
+          "bytestring" = "0.11.3.1";
           "filepath" = "1.4.2.2";
           "stm" = "2.5.0.2";
           "ghc-prim" = "0.8.0";
-          "ghc-boot-th" = "9.2.2";
-          "base" = "4.16.1.0";
+          "ghc-boot-th" = "9.2.3";
+          "base" = "4.16.2.0";
           "time" = "1.11.1.1";
           "process" = "1.6.13.2";
           "ghc-bignum" = "1.2";
@@ -213,6 +213,7 @@
           "transformers-base".components.library.planned = lib.mkOverride 900 true;
           "base-orphans".components.library.planned = lib.mkOverride 900 true;
           "map-io".components.library.planned = lib.mkOverride 900 true;
+          "simhash".components.exes."simhash-infer-learn".planned = lib.mkOverride 900 true;
           "these".components.library.planned = lib.mkOverride 900 true;
           "filepath".components.library.planned = lib.mkOverride 900 true;
           "distributive".components.library.planned = lib.mkOverride 900 true;

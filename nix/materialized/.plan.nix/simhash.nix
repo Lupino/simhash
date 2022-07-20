@@ -94,6 +94,17 @@
           hsSourceDirs = [ "app" ];
           mainPath = [ "simhash-infer.hs" ];
           };
+        "simhash-infer-learn" = {
+          depends = [
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."simhash" or (errorHandler.buildDepError "simhash"))
+            (hsPkgs."periodic-client" or (errorHandler.buildDepError "periodic-client"))
+            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
+            ];
+          buildable = true;
+          hsSourceDirs = [ "app" ];
+          mainPath = [ "simhash-infer-learn.hs" ];
+          };
         };
       };
     } // rec { src = (pkgs.lib).mkDefault ../.; }

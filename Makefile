@@ -1,7 +1,7 @@
 PLATFORM ?= musl64
 STRIP = strip
 PKG ?= simhash
-COMPILER = ghc922
+COMPILER = ghc923
 
 ifeq ($(PLATFORM),aarch64-multiplatform-musl)
 STRIP = aarch64-linux-gnu-strip
@@ -27,10 +27,11 @@ dist/$(PLATFORM)/%: dist/$(PLATFORM)
 	nix-shell --run "$(STRIP) -s $@" --argstr compiler-nix-name $(COMPILER) --arg crossPlatforms "ps: with ps; [$(PLATFORM)]"
 	chmod -w $@
 
+simhash-infer-learn: dist/$(PLATFORM)/simhash-infer-learn
 simhash-infer: dist/$(PLATFORM)/simhash-infer
 simhash-train: dist/$(PLATFORM)/simhash-train
 
-package: simhash-train simhash-infer
+package: simhash-train simhash-infer simhash-infer-learn
 	cd dist/$(PLATFORM) && tar cjvf ../simhash-linux-$(PLATFORM).tar.bz2 *
 
 
