@@ -12,6 +12,7 @@ SimHash::SimHash():
   SimHashDocumentEncoderParameters encoderParameters;
   encoderParameters.size = 600;
   encoderParameters.sparsity = 0.2;
+  encoderParameters.tokenSimilarity = true;
   encoder.initialize(encoderParameters);
   encoderOutput.initialize({600});
   spOutput.initialize({1600});
