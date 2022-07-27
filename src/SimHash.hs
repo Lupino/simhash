@@ -18,6 +18,7 @@ module SimHash
   , startRunner
   , startSaver
 
+  , inferOne
   , inferTask
   , inferLearnTask
   ) where
@@ -387,8 +388,11 @@ newRunnerQueue :: IO (TQueue RunnerQueue)
 newRunnerQueue = newTQueueIO
 
 
-readRunnerQueue :: TQueue RunnerQueue -> IO RunnerQueue
-readRunnerQueue = atomically . readTQueue
+readRunnerQueue :: MonadIO m => TQueue RunnerQueue -> m RunnerQueue
+readRunnerQueue queues = do
+  queue <- atomically $ readTQueue queues
+  atomically $ writeTQueue queues queue
+  pure queue
 
 
 data Runner = Runner
@@ -454,18 +458,22 @@ startSaver Runner {..} = async $ forever $ do
   saveModel runnerModel
 
 
-inferTask :: TQueue RunnerQueue -> JobM ()
-inferTask tqueue = do
-  itemMsg <- workload
+inferOne :: MonadIO m => RunnerQueue -> ByteString -> m [(Text, Double)]
+inferOne queue itemMsg = do
   iRet <- newEmptyTMVarIO
-  queue <- atomically $ readTQueue tqueue
   atomically $ writeTQueue queue QueueItem
     { itemLabel = Nothing
     , itemRet = Just iRet
     , ..
     }
-  atomically $ writeTQueue tqueue queue
-  ret <- atomically $ takeTMVar iRet
+  atomically $ takeTMVar iRet
+
+
+inferTask :: TQueue RunnerQueue -> JobM ()
+inferTask queues = do
+  msg <- workload
+  queue <- readRunnerQueue queues
+  ret <- inferOne queue msg
   workDone_ $ toStrict $ encode ret
 
 

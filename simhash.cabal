@@ -82,21 +82,11 @@ library
 
                      , mtl
                      , unliftio
-                     -- , direct-sqlite
   default-language:    Haskell2010
 
-executable simhash-train
+executable simhash-runner
   hs-source-dirs:      app
-  main-is:             simhash-train.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       base
-                     , simhash
-                     , optparse-applicative
-  default-language:    Haskell2010
-
-executable simhash-infer
-  hs-source-dirs:      app
-  main-is:             simhash-infer.hs
+  main-is:             simhash-runner.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , simhash
@@ -104,15 +94,6 @@ executable simhash-infer
                      , optparse-applicative
   default-language:    Haskell2010
 
-executable simhash-infer-learn
-  hs-source-dirs:      app
-  main-is:             simhash-infer-learn.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
-  build-depends:       base
-                     , simhash
-                     , periodic-client
-                     , optparse-applicative
-  default-language:    Haskell2010
 
 source-repository head
   type:     git

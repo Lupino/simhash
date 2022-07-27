@@ -27,11 +27,9 @@ dist/$(PLATFORM)/%: dist/$(PLATFORM)
 	nix-shell --run "$(STRIP) -s $@" --argstr compiler-nix-name $(COMPILER) --arg crossPlatforms "ps: with ps; [$(PLATFORM)]"
 	chmod -w $@
 
-simhash-infer-learn: dist/$(PLATFORM)/simhash-infer-learn
-simhash-infer: dist/$(PLATFORM)/simhash-infer
-simhash-train: dist/$(PLATFORM)/simhash-train
+simhash-runner: dist/$(PLATFORM)/simhash-runner
 
-package: simhash-train simhash-infer simhash-infer-learn
+package: simhash-runner
 	cd dist/$(PLATFORM) && tar cjvf ../simhash-linux-$(PLATFORM).tar.bz2 *
 
 
