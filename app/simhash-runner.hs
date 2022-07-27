@@ -166,4 +166,4 @@ pinfo = info parser
   ( progDesc "SimHash Runner" )
 
 main :: IO ()
-main = customExecParser (prefs helpShowGlobals) pinfo >>= print
+main = customExecParser (prefs helpShowGlobals) pinfo >>= program
