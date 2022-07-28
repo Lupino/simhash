@@ -64,44 +64,46 @@ startSP sp learn size iQueue oQueue = async $ forever $ do
 startClsrLearn
   :: MonadUnliftIO m
   => Classifier
-  -> Int64 -> TVar Int -> TVar Int
+  -> Int64 -> TVar Int64 -> TVar Int -> TVar Int
   -> TVar [Text] -> TQueue (Sdr, Text) -> m (Async ())
-startClsrLearn clsr startedAt totalH procH labels iQueue = async $ forever $ do
-  (pattern, label) <- atomically $ readTQueue iQueue
+startClsrLearn clsr startedAt timerH totalH procH labels iQueue = async $ forever $ do
+  (sdr, label) <- atomically $ readTQueue iQueue
   idx <- getLabelIdx labels label
-  liftIO $ Clsr.learn pattern idx clsr
+  liftIO $ Clsr.learn sdr idx clsr
   atomically $ modifyTVar' procH (+1)
-  liftIO $ showStats "Learn" startedAt totalH procH False Nothing
+  liftIO $ showStats "Learn" startedAt timerH totalH procH False Nothing
 
 
 startClsrTest
   :: MonadUnliftIO m
   => Classifier
-  -> Int64 -> TVar Int -> TVar Int -> TVar Int
+  -> Int64 -> TVar Int64 -> TVar Int -> TVar Int -> TVar Int
   -> TVar [Text]
   -> TQueue (Sdr, Text) -> m (Async ())
-startClsrTest clsr startedAt totalH procH rightH labelH iQueue = do
+startClsrTest clsr startedAt timerH totalH procH rightH labelH iQueue = do
   size <- length <$> readTVarIO labelH
   async $ forever $ do
-    (pattern, label) <- atomically $ readTQueue iQueue
-    infers <- liftIO $ Clsr.infer pattern size clsr
+    (sdr, label) <- atomically $ readTQueue iQueue
+    infers <- liftIO $ Clsr.infer sdr size clsr
     idx <- getLabelIdx labelH label
     atomically $ do
       modifyTVar' procH (+1)
       when (argmax infers == idx) $ modifyTVar' rightH (+1)
 
-    liftIO $ showStats "Test" startedAt totalH procH False $ Just $ do
+    liftIO $ showStats "Test" startedAt timerH totalH procH False $ Just $ do
       right <- readTVarIO rightH
       total <- readTVarIO procH
       putStrLn $ "Test score " ++ show (fromIntegral right / fromIntegral total)
 
 
-showStats :: String -> Int64 -> TVar Int -> TVar Int -> Bool -> Maybe (IO ()) -> IO ()
-showStats name startedAt totalH procH force mEvent = do
+showStats :: String -> Int64 -> TVar Int64 -> TVar Int -> TVar Int -> Bool -> Maybe (IO ()) -> IO ()
+showStats name startedAt timerH totalH procH force mEvent = do
   proc <- readTVarIO procH
   when (proc `mod` 2048 == 0 || force) $ do
+    timer <- readTVarIO timerH
     now <- getEpochTime
-    when ((now - startedAt) `mod` 60 == 0 || force) $ do
+    when ((now - timer) > 60 || force) $ do
+      atomically $ writeTVar timerH now
       total <- readTVarIO totalH
       putStrLn $ name ++ " iters " ++ show proc ++ "/" ++ show total
       case mEvent of
@@ -114,6 +116,8 @@ showStats name startedAt totalH procH force mEvent = do
 train :: FilePath -> FilePath -> FilePath -> IO ()
 train modelFile trainFile validFile = do
   startedAt <- getEpochTime
+  timerH <- newTVarIO startedAt
+
   queues <- newTQueueIO
   encodedQueue <- newTQueueIO
   replicateM_ 2 $ do
@@ -147,7 +151,7 @@ train modelFile trainFile validFile = do
   totalH <- newTVarIO 0
   procH <- newTVarIO 0
 
-  ioClsr <- startClsrLearn clsr startedAt totalH procH labelH spOutQueue
+  ioClsr <- startClsrLearn clsr startedAt timerH totalH procH labelH spOutQueue
   startReadFile trainFile queues totalH
 
   total <- readTVarIO totalH
@@ -156,7 +160,7 @@ train modelFile trainFile validFile = do
     if proc >= total then pure ()
                  else retrySTM
 
-  showStats "Learn" startedAt totalH procH True Nothing
+  showStats "Learn" startedAt timerH totalH procH True Nothing
 
   cancel ioSp
   cancel ioClsr
@@ -174,7 +178,7 @@ train modelFile trainFile validFile = do
   totalValidH <- newTVarIO 0
   procValidH <- newTVarIO 0
 
-  ioClsr1 <- startClsrTest clsr startedAt totalValidH procValidH rightH labelH spOutQueue
+  ioClsr1 <- startClsrTest clsr startedAt timerH totalValidH procValidH rightH labelH spOutQueue
   startReadFile validFile queues totalValidH
 
   totalValid <- readTVarIO totalValidH
@@ -187,7 +191,7 @@ train modelFile trainFile validFile = do
   cancel ioClsr1
 
   right <- fromIntegral <$> readTVarIO rightH
-  showStats "Test" startedAt totalValidH procValidH True $ Just $
+  showStats "Test" startedAt timerH totalValidH procValidH True $ Just $
     putStrLn $ "Test score " ++ show (right / fromIntegral totalValid)
 
   now <- getEpochTime
