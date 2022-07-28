@@ -26,29 +26,26 @@ module SimHash
 
 import           Control.Exception     (mask_)
 import           Control.Monad         (forM_, forever, unless, void, when)
-import           Control.Monad.Cont    (callCC, lift, runContT)
-import           Data.Aeson            (ToJSON (..), encode, object, (.=))
+import           Data.Aeson            (encode)
 import           Data.ByteString       (ByteString)
 import           Data.ByteString.Lazy  (toStrict)
-import qualified Data.ByteString.Lazy  as LB (writeFile)
 import           Data.Int              (Int64)
 import           Data.List             (elemIndex, sortBy)
 import           Data.Text             (Text)
-import qualified Data.Text             as T (drop, intercalate, length, null,
-                                             pack, split, strip, take,
-                                             takeWhile)
+import qualified Data.Text             as T (drop, intercalate, length, pack,
+                                             split, strip, take, takeWhile)
 import           Data.Text.Encoding    (encodeUtf8)
-import qualified Data.Text.IO          as T (hGetLine, readFile, writeFile)
+import qualified Data.Text.IO          as T (readFile, writeFile)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
+import           Htm.Stats
+import           Htm.Utils
 import qualified Language.C.Inline.Cpp as C
 import           Metro.Utils           (getEpochTime)
 import           Periodic.Job          (JobM, workDone, workDone_, workload)
 import           System.Directory      (doesFileExist)
-import           System.IO             (IOMode (ReadMode), hClose, hIsEOF,
-                                        openFile)
 import           UnliftIO              (Async, MonadIO, TMVar, TQueue, TVar,
                                         async, atomically, modifyTVar',
                                         newEmptyTMVarIO, newTQueueIO, newTVarIO,
@@ -124,6 +121,17 @@ cSimHashLoadFromFile ptr fn = do
   }|]
 
 
+cSimHashLoadFromFileV2 :: Ptr CSimHash -> ByteString -> ByteString -> IO ()
+cSimHashLoadFromFileV2 ptr spFile clsrFile = do
+  [C.block| void {
+    std::string spFile($bs-ptr:spFile);
+    spFile.resize($bs-len:spFile);
+    std::string clsrFile($bs-ptr:clsrFile);
+    clsrFile.resize($bs-len:clsrFile);
+    $(simhash::SimHash* ptr)->loadFromFileV2(spFile, clsrFile);
+  }|]
+
+
 newtype SimHash = SimHash (ForeignPtr CSimHash)
 
 new :: IO SimHash
@@ -170,6 +178,11 @@ loadFromFile :: SimHash -> ByteString -> IO ()
 loadFromFile sh fn = withSimHash sh $ flip cSimHashLoadFromFile fn
 
 
+loadFromFileV2 :: SimHash -> ByteString -> ByteString -> IO ()
+loadFromFileV2 sh spFile clsrFile = withSimHash sh $ \ptr ->
+  cSimHashLoadFromFileV2 ptr spFile clsrFile
+
+
 data SimHashModel = SimHashModel
   { modelLabels :: TVar [Text]
   , modelFile   :: FilePath
@@ -180,16 +193,22 @@ data SimHashModel = SimHashModel
 loadModel :: FilePath -> IO SimHashModel
 loadModel modelFile = do
   model <- new
-  exists <- doesFileExist modelFile
-  unless exists $ setup model
+  exists0 <- doesFileExist modelFile
+  exists1 <- doesFileExist $ modelFile ++ ".sp"
+  unless (exists0 || exists1) $ setup model
   modelLabels <- newTVarIO []
 
-  when exists $ do
-    loadFromFile model . encodeUtf8 $ T.pack modelFile
+  when (exists0 || exists1) $ do
     labels <- T.split (=='\n') . T.strip <$> T.readFile (modelFile ++ ".labels")
     atomically $ writeTVar modelLabels labels
 
+  when exists0 $ loadFromFile model . encodeUtf8 $ T.pack modelFile
+  when exists1 $ loadFromFileV2 model spFile clsrFile
+
   pure SimHashModel {..}
+
+  where spFile = encodeUtf8 $ T.pack $ modelFile ++ ".sp"
+        clsrFile = encodeUtf8 $ T.pack $ modelFile ++ ".clsr"
 
 
 splitLabelAndMsg :: Text -> (Text, Text)
@@ -198,102 +217,19 @@ splitLabelAndMsg msg = (label, str)
         str   = T.strip $ T.drop (T.length label + 1) msg
 
 
-readLineAndDo :: FilePath -> (Text -> Text -> IO ()) -> IO ()
-readLineAndDo path f = do
-  h <- openFile path ReadMode
-  (`runContT` pure) $ callCC $ \exit -> forever $ do
-    eof <- lift $ hIsEOF h
-    when eof $ exit ()
-    (label, str) <- lift $ splitLabelAndMsg <$> T.hGetLine h
-    unless (T.null label || T.null str) $ do
-      lift $ f label str
-
-  hClose h
-
-
-prettyTime :: Int64 -> String
-prettyTime t0
-  | h > 0 = show h ++ "h " ++ show m ++ "m " ++ show s ++ "s"
-  | m > 0 = show m ++ "m " ++ show s ++ "s"
-  | otherwise = show s ++ "s"
-  where s = t0 `mod` 60
-        t1 = floor $ fromIntegral t0 / 60
-        m = t1 `mod` 60
-        h = floor $ fromIntegral t1 / 60
-
-
-data Stats = Stats
-  { trainCount      :: Int
-  , testCount       :: Int
-  , trainStartedAt  :: Int64
-  , trainFinishedAt :: Int64
-  , trainSpent      :: String
-  , testStartedAt   :: Int64
-  , testFinishedAt  :: Int64
-  , testSpent       :: String
-  , testScore       :: Int
-  }
-  deriving (Show)
-
-
-emptyStats :: Stats
-emptyStats = Stats
-  { trainCount      = 0
-  , testCount       = 0
-  , trainStartedAt  = 0
-  , trainFinishedAt = 0
-  , trainSpent      = ""
-  , testStartedAt   = 0
-  , testFinishedAt  = 0
-  , testSpent       = ""
-  , testScore       = 0
-  }
-
-
-instance ToJSON Stats where
-  toJSON Stats {..} = object
-    [ "train_count"       .= trainCount
-    , "test_count"        .= testCount
-    , "started_at"        .= trainStartedAt
-    , "train_started_at"  .= trainStartedAt
-    , "train_iter"        .= trainCount
-    , "train_finished_at" .= trainFinishedAt
-    , "test_started_at"   .= testStartedAt
-    , "test_iter"         .= testCount
-    , "test_finished_at"  .= testFinishedAt
-    , "score"             .= testScore
-    , "finished_at"       .= testFinishedAt
-    ]
-
-
-saveStatsToFile :: FilePath -> Stats -> IO ()
-saveStatsToFile path = LB.writeFile path . encode
-
-
 saveModel :: SimHashModel -> IO ()
 saveModel SimHashModel {..} = do
   saveToFile model . encodeUtf8 $ T.pack modelFile
   labels <- readTVarIO modelLabels
   T.writeFile (modelFile ++ ".labels") $ T.intercalate "\n" labels
 
-
-getLabelIdx :: MonadIO m => TVar [Text] -> Text -> m Int
-getLabelIdx h label = atomically $ do
-  labels <- readTVar h
-  case elemIndex label labels of
-    Just idx -> pure idx
-    Nothing -> do
-      writeTVar h $! labels ++ [label]
-      pure $ length labels
-
-
 train :: SimHashModel -> Stats -> FilePath -> IO Stats
 train shm@SimHashModel {..} stats dataFile = do
   countH <- newTVarIO 0
   startedAt <- getEpochTime
-  readLineAndDo dataFile $ \label str -> do
+  readLineAndDo dataFile $ \str label -> do
     idx <- getLabelIdx modelLabels label
-    learn model (encodeUtf8 str) idx
+    learn model str idx
     addMetrics model
     count <- atomically $ do
       c <- readTVar countH
@@ -323,15 +259,6 @@ train shm@SimHashModel {..} stats dataFile = do
           showMetrics model
 
 
-argmax :: [Double] -> Int
-argmax = go 0 0 0.0
-  where go :: Int -> Int -> Double -> [Double] -> Int
-        go _ idx _ [] = idx
-        go c idx v (x:xs)
-          | v > x = go (c + 1) idx v xs
-          | otherwise = go (c + 1) c x xs
-
-
 test :: SimHashModel -> Stats -> FilePath -> IO Stats
 test SimHashModel {..} stats testFile = do
   totalH <- newTVarIO 0
@@ -340,8 +267,8 @@ test SimHashModel {..} stats testFile = do
   let size = length labels
   startedAt <- getEpochTime
 
-  readLineAndDo testFile $ \label str -> do
-    infers <- infer model (encodeUtf8 str) size
+  readLineAndDo testFile $ \str label -> do
+    infers <- infer model str size
     atomically $ do
       modifyTVar' totalH (+1)
       case elemIndex label labels of

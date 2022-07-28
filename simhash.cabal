@@ -70,6 +70,13 @@ library
                        cxx-src/MyLog.cpp
   hs-source-dirs:      src
   exposed-modules:     SimHash
+                     , Htm.Sdr
+                     , Htm.SimHashDocumentEncoder
+                     , Htm.SpatialPooler
+                     , Htm.Classifier
+                     , Htm.Train
+                     , Htm.Utils
+                     , Htm.Stats
   build-depends:       base >= 4.7 && < 5
                      , periodic-client
                      , metro

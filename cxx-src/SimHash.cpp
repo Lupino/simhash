@@ -68,4 +68,9 @@ void SimHash::showMetrics() {
   cout << "spStats " << spOutputStats << endl;
 }
 
+void SimHash::loadFromFileV2(const std::string spFile, const std::string clsrFile) {
+    sp.loadFromFile(spFile);
+    clsr.loadFromFile(clsrFile);
+}
+
 }

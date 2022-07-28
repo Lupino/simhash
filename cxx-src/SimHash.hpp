@@ -27,6 +27,7 @@ class SimHash : public Serializable {
     void setup();
     void learn(const std::string input, const UInt categoryIdx);
     void infer(const std::string input, double* out);
+    void loadFromFileV2(const std::string spFile, const std::string clsrFile);
     void addMetrics();
     void showMetrics();
 

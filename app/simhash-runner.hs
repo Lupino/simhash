@@ -9,6 +9,7 @@ module Main
 
 import           Control.Monad              (replicateM_, void)
 import           Data.String                (fromString)
+import qualified Htm.Train                  as Train
 import           Options.Applicative
 import           Options.Applicative.Arrows
 import           Periodic.Worker            (addFunc, startWorkerM, work)
@@ -30,6 +31,7 @@ data Command
   | Test String
   | Infer PeriodicOpts Int
   | InferLearn PeriodicOpts
+  | TrainV2 FilePath FilePath
   deriving Show
 
 
@@ -73,6 +75,19 @@ periodicOpts = PeriodicOpts
 
 trainParser :: Parser Command
 trainParser = Train
+  <$> strOption
+    ( long "data"
+    <> short 'd'
+    <> metavar "DATA FILE"
+    <> value "data.txt")
+  <*> strOption
+    ( long "test"
+    <> short 't'
+    <> metavar "TEST FILE"
+    <> value "test.txt")
+
+trainV2Parser :: Parser Command
+trainV2Parser = TrainV2
   <$> strOption
     ( long "data"
     <> short 'd'
@@ -130,7 +145,11 @@ parser = runA $ proc () -> do
                     (progDesc "Run infer task"))
            <> command "infer-learn"
               (info inferLearnParser
-                    (progDesc "Run infer learn task")) ) -< ()
+                    (progDesc "Run infer learn task"))
+           <> command "v2-train"
+              (info trainV2Parser
+                    (progDesc "Train simhash model v2"))
+            ) -< ()
   A version >>> A helper -< Args opts cmds
 
 
@@ -160,6 +179,8 @@ program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferLearnTask rq
     work optWorkSize
+program (Args CommonOpts{..} (TrainV2 dataFile testFile)) = do
+  Train.train optModelFile dataFile testFile
 
 pinfo :: ParserInfo Args
 pinfo = info parser
