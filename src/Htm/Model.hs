@@ -2,17 +2,15 @@
 {-# LANGUAGE RecordWildCards   #-}
 
 module Htm.Model
-  ( train
-  , test
-  , Model (..)
+  ( Model (..)
   , loadModel
   , saveModel
+  , trainAndValid
   ) where
 
 
 import           Control.Monad    (unless, when)
 import           Data.Int         (Int64)
-import           Data.List        (elemIndex)
 import           Data.Text        (Text)
 import qualified Data.Text        as T (intercalate, split, strip)
 import qualified Data.Text.IO     as T (readFile, writeFile)
@@ -22,7 +20,7 @@ import           Htm.Utils
 import           Metro.Utils      (getEpochTime)
 import           System.Directory (doesFileExist, renameFile)
 import           UnliftIO         (TVar, atomically, modifyTVar', newTVarIO,
-                                   readTVar, readTVarIO, writeTVar)
+                                   readTVarIO, writeTVar)
 
 data Model = Model
   { labelHandle :: TVar [Text]
@@ -62,78 +60,78 @@ saveModel Model {..} = do
   renameFile (modelFile ++ ".1") modelFile
   renameFile (modelFile ++ ".labels.1") (modelFile ++ ".labels")
 
-train :: Model -> Stats -> FilePath -> IO Stats
-train shm@Model {..} stats dataFile = do
-  countH <- newTVarIO 0
-  startedAt <- getEpochTime
+
+train :: Model -> FilePath -> Int64 -> TVar Int64 -> TVar Int -> IO ()
+train shm@Model {..} dataFile startedAt timerH totalH = do
   readLineAndDo dataFile $ \str label -> do
     idx <- getLabelIdx labelHandle label
     learn str idx simhash
-    count <- atomically $ do
-      c <- readTVar countH
-      writeTVar countH $! c + 1
-      pure c
-
-    when (count `mod` 1024 == 0) $ showTrainStats startedAt count
-
-  count <- readTVarIO countH
-  showTrainStats startedAt count
-  finishedAt <- getEpochTime
+    atomically $ modifyTVar' totalH (+1)
+    showStats "Train" startedAt timerH totalH False Nothing
 
   saveModel shm
-
-  pure stats
-    { trainCount = count
-    , trainStartedAt = startedAt
-    , trainFinishedAt = finishedAt
-    , trainSpent = prettyTime (finishedAt - startedAt)
-    }
-
-  where showTrainStats :: Int64 -> Int -> IO ()
-        showTrainStats startedAt count = do
-          now <- getEpochTime
-          putStrLn $ "Train iters " ++ show count
-          putStrLn $ "Train spent " ++ prettyTime (now - startedAt)
+  showStats "Train" startedAt timerH totalH True Nothing
 
 
-test :: Model -> Stats -> FilePath -> IO Stats
-test Model {..} stats testFile = do
-  totalH <- newTVarIO 0
-  rightH <- newTVarIO 0
-  labels <- readTVarIO labelHandle
-  let size = length labels
-  startedAt <- getEpochTime
+test :: Model -> FilePath -> Int64 -> TVar Int64 -> TVar Int -> TVar Int -> IO ()
+test Model {..} testFile startedAt timerH totalH rightH = do
+  size <- length <$> readTVarIO labelHandle
 
   readLineAndDo testFile $ \str label -> do
     infers <- infer str size simhash
+    idx <- getLabelIdx labelHandle label
     atomically $ do
       modifyTVar' totalH (+1)
-      case elemIndex label labels of
-        Nothing -> pure ()
-        Just idx ->
-          when (argmax infers == idx) $ modifyTVar' rightH (+1)
+      when (argmax infers == idx) $ modifyTVar' rightH (+1)
+    showStats "Test" startedAt timerH totalH False $ Just $ showScore
 
-    total <- readTVarIO totalH
-    when (total `mod` 1024 == 0) $ showTestStats startedAt totalH rightH
+  showStats "Test" startedAt timerH totalH True $ Just showScore
 
-  showTestStats startedAt totalH rightH
-  finishedAt <- getEpochTime
-  right <- fromIntegral <$> readTVarIO rightH
-  total <- fromIntegral <$> readTVarIO totalH
-
-  pure stats
-    { testCount = total
-    , testStartedAt = startedAt
-    , testFinishedAt = finishedAt
-    , testScore = floor (fromIntegral right * 10000 / fromIntegral total)
-    , testSpent = prettyTime (finishedAt - startedAt)
-    }
-
-  where showTestStats :: Int64 -> TVar Int -> TVar Int -> IO ()
-        showTestStats startedAt totalH rightH = do
-          now <- getEpochTime
+  where showScore :: IO ()
+        showScore = do
           right <- readTVarIO rightH
           total <- readTVarIO totalH
-          putStrLn $ "Test iters " ++ show total
           putStrLn $ "Test score " ++ show (fromIntegral right / fromIntegral total)
-          putStrLn $ "Test spent " ++ prettyTime (now - startedAt)
+
+
+trainAndValid :: FilePath -> FilePath -> FilePath -> IO ()
+trainAndValid mFile trainFile validFile = do
+  model <- loadModel mFile
+  trainStartedAt <- getEpochTime
+  timerH <- newTVarIO trainStartedAt
+  totalH <- newTVarIO 0
+  train model trainFile trainStartedAt timerH totalH
+
+  testStartedAt <- getEpochTime
+  testTotalH <- newTVarIO 0
+  testRightH <- newTVarIO 0
+  test model validFile trainStartedAt timerH totalH testRightH
+
+  trainCount <- readTVarIO totalH
+  testCount  <- readTVarIO testTotalH
+  rightCount <- readTVarIO testRightH
+
+  testFinishedAt <- getEpochTime
+  saveStatsToFile statFile1 Stats
+    { testScore       = floor (fromIntegral rightCount * 10000 / fromIntegral testCount)
+    , ..
+    }
+  renameFile statFile1 statFile
+  where statFile = mFile ++ ".stats.json"
+        statFile1 = statFile ++ ".1"
+
+
+showStats :: String -> Int64 -> TVar Int64 -> TVar Int -> Bool -> Maybe (IO ()) -> IO ()
+showStats name startedAt timerH procH force mEvent = do
+  proc <- readTVarIO procH
+  when (proc `mod` 1024 == 0 || force) $ do
+    timer <- readTVarIO timerH
+    now <- getEpochTime
+    when ((now - timer) > 60 || force) $ do
+      atomically $ writeTVar timerH now
+      putStrLn $ name ++ " iters " ++ show proc
+      case mEvent of
+        Nothing    -> pure ()
+        Just event -> event
+
+      putStrLn $ "Spent " ++ prettyTime (now - startedAt)

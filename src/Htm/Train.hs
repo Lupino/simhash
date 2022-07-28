@@ -200,11 +200,8 @@ train modelFile trainFile validFile = do
     { trainCount      = total
     , testCount       = totalValid
     , trainStartedAt  = startedAt
-    , trainFinishedAt = validStartedAt
-    , trainSpent      = prettyTime (validStartedAt - startedAt)
     , testStartedAt   = validStartedAt
     , testFinishedAt  = now
-    , testSpent       = prettyTime (now - validStartedAt)
     , testScore       = floor (right * 10000 / fromIntegral totalValid)
     }
 

@@ -9,8 +9,7 @@ module Main
 
 import           Control.Monad              (replicateM_, void)
 import           Data.String                (fromString)
-import           Htm.Model                  (loadModel, test, train)
-import           Htm.Stats                  (emptyStats, saveStatsToFile)
+import           Htm.Model                  (trainAndValid)
 import qualified Htm.Train                  as Train
 import           Options.Applicative
 import           Options.Applicative.Arrows
@@ -155,11 +154,8 @@ parser = runA $ proc () -> do
 
 
 program :: Args -> IO ()
-program (Args CommonOpts{..} (Train dataFile testFile)) = do
-  model <- loadModel optModelFile
-  stats0 <- train model emptyStats dataFile
-  stats1 <- test model stats0 testFile
-  saveStatsToFile (optModelFile ++ ".stats.json") stats1
+program (Args CommonOpts{..} (Train trainFile validFile)) =
+  trainAndValid optModelFile trainFile validFile
 program (Args CommonOpts{..} (Test s)) = do
   queues <- newRunnerQueue
   void $ startRunner queues optModelFile

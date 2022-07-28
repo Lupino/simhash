@@ -13,15 +13,12 @@ import qualified Data.ByteString.Lazy as LB (writeFile)
 import           Data.Int             (Int64)
 
 data Stats = Stats
-  { trainCount      :: Int
-  , testCount       :: Int
-  , trainStartedAt  :: Int64
-  , trainFinishedAt :: Int64
-  , trainSpent      :: String
-  , testStartedAt   :: Int64
-  , testFinishedAt  :: Int64
-  , testSpent       :: String
-  , testScore       :: Int
+  { trainCount     :: Int
+  , testCount      :: Int
+  , trainStartedAt :: Int64
+  , testStartedAt  :: Int64
+  , testFinishedAt :: Int64
+  , testScore      :: Int
   }
   deriving (Show)
 
@@ -31,11 +28,8 @@ emptyStats = Stats
   { trainCount      = 0
   , testCount       = 0
   , trainStartedAt  = 0
-  , trainFinishedAt = 0
-  , trainSpent      = ""
   , testStartedAt   = 0
   , testFinishedAt  = 0
-  , testSpent       = ""
   , testScore       = 0
   }
 
@@ -47,7 +41,7 @@ instance ToJSON Stats where
     , "started_at"        .= trainStartedAt
     , "train_started_at"  .= trainStartedAt
     , "train_iter"        .= trainCount
-    , "train_finished_at" .= trainFinishedAt
+    , "train_finished_at" .= testStartedAt
     , "test_started_at"   .= testStartedAt
     , "test_iter"         .= testCount
     , "test_finished_at"  .= testFinishedAt
