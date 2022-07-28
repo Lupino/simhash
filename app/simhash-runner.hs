@@ -9,15 +9,16 @@ module Main
 
 import           Control.Monad              (replicateM_, void)
 import           Data.String                (fromString)
+import           Htm.Stats                  (emptyStats, saveStatsToFile)
 import qualified Htm.Train                  as Train
 import           Options.Applicative
 import           Options.Applicative.Arrows
 import           Periodic.Worker            (addFunc, startWorkerM, work)
-import           SimHash                    (emptyStats, inferLearnTask,
-                                             inferOne, inferTask, loadModel,
+import           SimHash                    (inferLearnTask, inferOne,
+                                             inferTask, loadModel,
                                              newRunnerQueue, readRunnerQueue,
-                                             saveStatsToFile, startRunner,
-                                             startSaver, test, train)
+                                             startRunner, startSaver, test,
+                                             train)
 
 data Args = Args CommonOpts Command
   deriving Show

@@ -8,9 +8,6 @@ module SimHash
   , test
   , SimHashModel
   , loadModel
-  , Stats
-  , emptyStats
-  , saveStatsToFile
 
   , RunnerQueue
   , newRunnerQueue
