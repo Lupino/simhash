@@ -10,14 +10,14 @@ module Main
 import           Control.Monad              (replicateM_, void)
 import           Data.String                (fromString)
 import           Htm.Model                  (trainAndValid)
+import           Htm.Runner                 (inferOne, newQueue, startRunner,
+                                             startSaver)
 import qualified Htm.Train                  as Train
 import           Options.Applicative
 import           Options.Applicative.Arrows
 import           Periodic.Worker            (addFunc, startWorkerM, work)
-import           SimHash                    (inferLearnTask, inferOne,
-                                             inferTask, newRunnerQueue,
-                                             readRunnerQueue, startRunner,
-                                             startSaver)
+import           SimHash                    (inferLearnTask, inferTask,
+                                             newQueues, newRQueue)
 
 data Args = Args CommonOpts Command
   deriving Show
@@ -157,24 +157,24 @@ program :: Args -> IO ()
 program (Args CommonOpts{..} (Train trainFile validFile)) =
   trainAndValid optModelFile trainFile validFile
 program (Args CommonOpts{..} (Test s)) = do
-  queues <- newRunnerQueue
-  void $ startRunner queues optModelFile
-  rq <- readRunnerQueue queues
-  ret <- inferOne rq (fromString s)
+  queue <- newQueue
+  void $ startRunner queue optModelFile
+  ret <- inferOne queue (fromString s)
   print ret
 program (Args CommonOpts{..} (Infer PeriodicOpts {..} runnerSize)) = do
-  queue <- newRunnerQueue
-  replicateM_ runnerSize $ startRunner queue optModelFile
+  queues <- newQueues
+  replicateM_ runnerSize $ do
+    queue <-  newRQueue queues
+    void $ startRunner queue optModelFile
   startWorkerM optHost $ do
-    addFunc (fromString optFuncName) $ inferTask queue
+    addFunc (fromString optFuncName) $ inferTask queues
     work optWorkSize
 program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
-  queue <- newRunnerQueue
+  queue <- newQueue
   (runner, _) <- startRunner queue optModelFile
   void $ startSaver runner
-  rq <- readRunnerQueue queue
   startWorkerM optHost $ do
-    addFunc (fromString optFuncName) $ inferLearnTask rq
+    addFunc (fromString optFuncName) $ inferLearnTask queue
     work optWorkSize
 program (Args CommonOpts{..} (TrainV2 dataFile testFile)) = do
   Train.train optModelFile dataFile testFile
