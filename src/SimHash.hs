@@ -92,17 +92,6 @@ cSimHashInfer ptr str out = do
     $(simhash::SimHash* ptr)->infer(str, $(double* out));
   }|]
 
-
-cSimHashAddMetrics :: Ptr CSimHash -> IO ()
-cSimHashAddMetrics ptr =
-  [C.exp| void {$(simhash::SimHash* ptr)->addMetrics()}|]
-
-
-cSimHashShowMetrics :: Ptr CSimHash -> IO ()
-cSimHashShowMetrics ptr =
-  [C.exp| void {$(simhash::SimHash* ptr)->showMetrics()}|]
-
-
 cSimHashSaveToFile :: Ptr CSimHash -> ByteString -> IO ()
 cSimHashSaveToFile ptr fn = do
   [C.block| void {
@@ -160,15 +149,6 @@ infer sh str size =
     allocaArray size $ \out -> do
       cSimHashInfer ptr str out
       map realToFrac <$> peekArray size out
-
-
-addMetrics :: SimHash -> IO ()
-addMetrics sh = withSimHash sh cSimHashAddMetrics
-
-
-showMetrics :: SimHash -> IO ()
-showMetrics sh = withSimHash sh cSimHashShowMetrics
-
 
 saveToFile :: SimHash -> ByteString -> IO ()
 saveToFile sh fn = withSimHash sh $ flip cSimHashSaveToFile fn
@@ -232,7 +212,6 @@ train shm@SimHashModel {..} stats dataFile = do
   readLineAndDo dataFile $ \str label -> do
     idx <- getLabelIdx modelLabels label
     learn model str idx
-    addMetrics model
     count <- atomically $ do
       c <- readTVar countH
       writeTVar countH $! c + 1
@@ -258,7 +237,6 @@ train shm@SimHashModel {..} stats dataFile = do
           now <- getEpochTime
           putStrLn $ "Train iters " ++ show count
           putStrLn $ "Train spent " ++ prettyTime (now - startedAt)
-          showMetrics model
 
 
 test :: SimHashModel -> Stats -> FilePath -> IO Stats
