@@ -77,6 +77,7 @@ library
                      , Htm.Train
                      , Htm.Utils
                      , Htm.Stats
+                     , Htm.SimHash
   build-depends:       base >= 4.7 && < 5
                      , periodic-client
                      , metro

@@ -3,6 +3,7 @@ module Htm.Utils
   , readLineAndDo
   , argmax
   , prettyTime
+  , splitLabelAndMsg
   ) where
 
 

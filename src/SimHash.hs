@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module SimHash
   ( train
@@ -21,144 +19,29 @@ module SimHash
   ) where
 
 
-import           Control.Exception     (mask_)
-import           Control.Monad         (forM_, forever, unless, void, when)
-import           Data.Aeson            (encode)
-import           Data.ByteString       (ByteString)
-import           Data.ByteString.Lazy  (toStrict)
-import           Data.Int              (Int64)
-import           Data.List             (elemIndex, sortBy)
-import           Data.Text             (Text)
-import qualified Data.Text             as T (drop, intercalate, length, pack,
-                                             split, strip, take, takeWhile)
-import           Data.Text.Encoding    (encodeUtf8)
-import qualified Data.Text.IO          as T (readFile, writeFile)
-import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
-                                        withForeignPtr)
-import           Foreign.Marshal.Array (allocaArray, peekArray)
-import           Foreign.Ptr           (FunPtr, Ptr)
+import           Control.Monad        (forM_, forever, unless, void, when)
+import           Data.Aeson           (encode)
+import           Data.ByteString      (ByteString)
+import           Data.ByteString.Lazy (toStrict)
+import           Data.Int             (Int64)
+import           Data.List            (elemIndex, sortBy)
+import           Data.Text            (Text)
+import qualified Data.Text            as T (drop, intercalate, pack, split,
+                                            strip, take)
+import           Data.Text.Encoding   (encodeUtf8)
+import qualified Data.Text.IO         as T (readFile, writeFile)
+import           Htm.SimHash
 import           Htm.Stats
 import           Htm.Utils
-import qualified Language.C.Inline.Cpp as C
-import           Metro.Utils           (getEpochTime)
-import           Periodic.Job          (JobM, workDone, workDone_, workload)
-import           System.Directory      (doesFileExist, renameFile)
-import           UnliftIO              (Async, MonadIO, TMVar, TQueue, TVar,
-                                        async, atomically, modifyTVar',
-                                        newEmptyTMVarIO, newTQueueIO, newTVarIO,
-                                        readTQueue, readTVar, readTVarIO,
-                                        registerDelay, retrySTM, takeTMVar,
-                                        tryPutTMVar, writeTQueue, writeTVar)
-
-data CSimHash
-
-C.context (C.cppCtx <> C.bsCtx <> C.cppTypePairs [("simhash::SimHash", [t|CSimHash|])])
-C.include "<SimHash.hpp>"
-
-newCSimHash :: IO (Ptr CSimHash)
-newCSimHash =
-  [C.block| simhash::SimHash* {
-    return new simhash::SimHash();
-  }|]
-
-
-cDeleteSimHash :: FunPtr (Ptr CSimHash -> IO ())
-cDeleteSimHash =
-  [C.funPtr|void deleteSimHash(simhash::SimHash* sh){delete sh;}|]
-
-
-cSimHashSetup :: Ptr CSimHash -> IO ()
-cSimHashSetup ptr =
-  [C.exp| void {$(simhash::SimHash* ptr)->setup()}|]
-
-
-cSimHashLearn :: Ptr CSimHash -> ByteString -> C.CInt -> IO ()
-cSimHashLearn ptr str idx =
-  [C.block| void {
-    std::string str($bs-ptr:str);
-    str.resize($bs-len:str);
-    $(simhash::SimHash* ptr)->learn(str, $(int idx));
-  }|]
-
-
-cSimHashInfer :: Ptr CSimHash -> ByteString -> Ptr C.CDouble -> IO ()
-cSimHashInfer ptr str out = do
-  [C.block| void {
-    std::string str($bs-ptr:str);
-    str.resize($bs-len:str);
-    $(simhash::SimHash* ptr)->infer(str, $(double* out));
-  }|]
-
-cSimHashSaveToFile :: Ptr CSimHash -> ByteString -> IO ()
-cSimHashSaveToFile ptr fn = do
-  [C.block| void {
-    std::string fn($bs-ptr:fn);
-    fn.resize($bs-len:fn);
-    $(simhash::SimHash* ptr)->saveToFile(fn);
-  }|]
-
-
-cSimHashLoadFromFile :: Ptr CSimHash -> ByteString -> IO ()
-cSimHashLoadFromFile ptr fn = do
-  [C.block| void {
-    std::string fn($bs-ptr:fn);
-    fn.resize($bs-len:fn);
-    $(simhash::SimHash* ptr)->loadFromFile(fn);
-  }|]
-
-
-cSimHashLoadFromFileV2 :: Ptr CSimHash -> ByteString -> ByteString -> IO ()
-cSimHashLoadFromFileV2 ptr spFile clsrFile = do
-  [C.block| void {
-    std::string spFile($bs-ptr:spFile);
-    spFile.resize($bs-len:spFile);
-    std::string clsrFile($bs-ptr:clsrFile);
-    clsrFile.resize($bs-len:clsrFile);
-    $(simhash::SimHash* ptr)->loadFromFileV2(spFile, clsrFile);
-  }|]
-
-
-newtype SimHash = SimHash (ForeignPtr CSimHash)
-
-new :: IO SimHash
-new = mask_ $ do
-  ptr <- newCSimHash
-  SimHash <$> newForeignPtr cDeleteSimHash ptr
-
-
-setup :: SimHash -> IO ()
-setup sh = withSimHash sh cSimHashSetup
-
-
-withSimHash :: SimHash -> (Ptr CSimHash -> IO a) -> IO a
-withSimHash (SimHash fptr) = withForeignPtr fptr
-
-
-learn :: SimHash -> ByteString -> Int -> IO ()
-learn sh str idx =
-  withSimHash sh $ \ptr ->
-    cSimHashLearn ptr str (fromIntegral idx)
-
-
-infer :: SimHash -> ByteString -> Int -> IO [Double]
-infer sh str size =
-  withSimHash sh $ \ptr ->
-    allocaArray size $ \out -> do
-      cSimHashInfer ptr str out
-      map realToFrac <$> peekArray size out
-
-saveToFile :: SimHash -> ByteString -> IO ()
-saveToFile sh fn = withSimHash sh $ flip cSimHashSaveToFile fn
-
-
-loadFromFile :: SimHash -> ByteString -> IO ()
-loadFromFile sh fn = withSimHash sh $ flip cSimHashLoadFromFile fn
-
-
-loadFromFileV2 :: SimHash -> ByteString -> ByteString -> IO ()
-loadFromFileV2 sh spFile clsrFile = withSimHash sh $ \ptr ->
-  cSimHashLoadFromFileV2 ptr spFile clsrFile
-
+import           Metro.Utils          (getEpochTime)
+import           Periodic.Job         (JobM, workDone, workDone_, workload)
+import           System.Directory     (doesFileExist, renameFile)
+import           UnliftIO             (Async, MonadIO, TMVar, TQueue, TVar,
+                                       async, atomically, modifyTVar',
+                                       newEmptyTMVarIO, newTQueueIO, newTVarIO,
+                                       readTQueue, readTVar, readTVarIO,
+                                       registerDelay, retrySTM, takeTMVar,
+                                       tryPutTMVar, writeTQueue, writeTVar)
 
 data SimHashModel = SimHashModel
   { modelLabels :: TVar [Text]
@@ -179,8 +62,8 @@ loadModel modelFile = do
     labels <- T.split (=='\n') . T.strip <$> T.readFile (modelFile ++ ".labels")
     atomically $ writeTVar modelLabels labels
 
-  when exists0 $ loadFromFile model . encodeUtf8 $ T.pack modelFile
-  when exists1 $ loadFromFileV2 model spFile clsrFile
+  when exists0 $ loadFromFile (encodeUtf8 $ T.pack modelFile) model
+  when exists1 $ loadFromFileV2 spFile clsrFile model
 
   pure SimHashModel {..}
 
@@ -188,15 +71,9 @@ loadModel modelFile = do
         clsrFile = encodeUtf8 $ T.pack $ modelFile ++ ".clsr"
 
 
-splitLabelAndMsg :: Text -> (Text, Text)
-splitLabelAndMsg msg = (label, str)
-  where label = T.strip $ T.takeWhile (/=',') msg
-        str   = T.strip $ T.drop (T.length label + 1) msg
-
-
 saveModel :: SimHashModel -> IO ()
 saveModel SimHashModel {..} = do
-  saveToFile model . encodeUtf8 $ T.pack $ modelFile ++ ".1"
+  saveToFile (encodeUtf8 $ T.pack $ modelFile ++ ".1") model
   labels <- readTVarIO modelLabels
   T.writeFile (modelFile ++ ".labels.1") $ T.intercalate "\n" labels
   renameFile (modelFile ++ ".1") modelFile
@@ -208,7 +85,7 @@ train shm@SimHashModel {..} stats dataFile = do
   startedAt <- getEpochTime
   readLineAndDo dataFile $ \str label -> do
     idx <- getLabelIdx modelLabels label
-    learn model str idx
+    learn str idx model
     count <- atomically $ do
       c <- readTVar countH
       writeTVar countH $! c + 1
@@ -245,7 +122,7 @@ test SimHashModel {..} stats testFile = do
   startedAt <- getEpochTime
 
   readLineAndDo testFile $ \str label -> do
-    infers <- infer model str size
+    infers <- infer str size model
     atomically $ do
       modifyTVar' totalH (+1)
       case elemIndex label labels of
@@ -319,7 +196,7 @@ runRunner Runner {..} = do
   forM_ itemRet $ \ret -> do
     labels <- readTVarIO labelTVar
     let size = length labels
-    infers <- infer m itemMsg size
+    infers <- infer itemMsg size m
     atomically
       . void
       . tryPutTMVar ret
@@ -329,7 +206,7 @@ runRunner Runner {..} = do
 
   forM_ itemLabel $ \label -> do
     idx <- getLabelIdx labelTVar label
-    learn m itemMsg idx
+    learn itemMsg idx m
 
     doSave <- registerDelay delayUS
     atomically $ writeTVar runnerSaver $ Just doSave
