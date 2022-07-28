@@ -14,9 +14,11 @@ import           Data.Int         (Int64)
 import           Data.Text        (Text)
 import qualified Data.Text        as T (intercalate, split, strip)
 import qualified Data.Text.IO     as T (readFile, writeFile)
-import           Htm.SimHash
-import           Htm.Stats
-import           Htm.Utils
+import           Htm.SimHash      (SimHash, infer, learn, loadFromFile,
+                                   loadFromFileV2, new, saveToFile, setup)
+import           Htm.Stats        (Stats (..), saveStatsToFile)
+import           Htm.Utils        (argmax, getLabelIdx, prettyTime,
+                                   readLineAndDo)
 import           Metro.Utils      (getEpochTime)
 import           System.Directory (doesFileExist, renameFile)
 import           UnliftIO         (TVar, atomically, modifyTVar', newTVarIO,
@@ -83,7 +85,7 @@ test Model {..} testFile startedAt timerH totalH rightH = do
     atomically $ do
       modifyTVar' totalH (+1)
       when (argmax infers == idx) $ modifyTVar' rightH (+1)
-    showStats "Test" startedAt timerH totalH False $ Just $ showScore
+    showStats "Test" startedAt timerH totalH False $ Just showScore
 
   showStats "Test" startedAt timerH totalH True $ Just showScore
 

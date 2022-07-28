@@ -16,8 +16,8 @@ import           Data.ByteString.Lazy (toStrict)
 import           Data.Text            (Text)
 import qualified Data.Text            as T (drop, take)
 import           Data.Text.Encoding   (encodeUtf8)
-import           Htm.Runner
-import           Htm.Utils
+import           Htm.Runner           (Item (..), Queue, inferOne)
+import           Htm.Utils            (splitLabelAndMsg)
 import           Periodic.Job         (JobM, workDone, workDone_, workload)
 import           UnliftIO             (MonadIO, TQueue, atomically,
                                        newEmptyTMVarIO, newTQueueIO, readTQueue,

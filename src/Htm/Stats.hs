@@ -3,7 +3,6 @@
 
 module Htm.Stats
   ( Stats (..)
-  , emptyStats
   , saveStatsToFile
   ) where
 
@@ -21,17 +20,6 @@ data Stats = Stats
   , testScore      :: Int
   }
   deriving (Show)
-
-
-emptyStats :: Stats
-emptyStats = Stats
-  { trainCount      = 0
-  , testCount       = 0
-  , trainStartedAt  = 0
-  , testStartedAt   = 0
-  , testFinishedAt  = 0
-  , testScore       = 0
-  }
 
 
 instance ToJSON Stats where

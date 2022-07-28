@@ -16,9 +16,9 @@ import           Control.Monad   (forM_, forever, unless, void)
 import           Data.ByteString (ByteString)
 import           Data.List       (sortBy)
 import           Data.Text       (Text)
-import           Htm.Model
-import           Htm.SimHash
-import           Htm.Utils
+import           Htm.Model       (Model (..), loadModel, saveModel)
+import           Htm.SimHash     (infer, learn)
+import           Htm.Utils       (getLabelIdx)
 import           UnliftIO        (Async, MonadIO, TMVar, TQueue, TVar, async,
                                   atomically, newEmptyTMVarIO, newTQueueIO,
                                   newTVarIO, readTQueue, readTVar, readTVarIO,
