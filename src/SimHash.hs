@@ -45,7 +45,7 @@ import           Htm.Utils
 import qualified Language.C.Inline.Cpp as C
 import           Metro.Utils           (getEpochTime)
 import           Periodic.Job          (JobM, workDone, workDone_, workload)
-import           System.Directory      (doesFileExist)
+import           System.Directory      (doesFileExist, renameFile)
 import           UnliftIO              (Async, MonadIO, TMVar, TQueue, TVar,
                                         async, atomically, modifyTVar',
                                         newEmptyTMVarIO, newTQueueIO, newTVarIO,
@@ -219,9 +219,11 @@ splitLabelAndMsg msg = (label, str)
 
 saveModel :: SimHashModel -> IO ()
 saveModel SimHashModel {..} = do
-  saveToFile model . encodeUtf8 $ T.pack modelFile
+  saveToFile model . encodeUtf8 $ T.pack $ modelFile ++ ".1"
   labels <- readTVarIO modelLabels
-  T.writeFile (modelFile ++ ".labels") $ T.intercalate "\n" labels
+  T.writeFile (modelFile ++ ".labels.1") $ T.intercalate "\n" labels
+  renameFile (modelFile ++ ".1") modelFile
+  renameFile (modelFile ++ ".labels.1") (modelFile ++ ".labels")
 
 train :: SimHashModel -> Stats -> FilePath -> IO Stats
 train shm@SimHashModel {..} stats dataFile = do
