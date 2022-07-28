@@ -18,6 +18,8 @@ module Htm.SimHash
 
 import           Control.Exception     (mask_)
 import           Data.ByteString       (ByteString)
+import qualified Data.Text             as T (pack)
+import           Data.Text.Encoding    (encodeUtf8)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Array (allocaArray, peekArray)
@@ -117,14 +119,18 @@ infer str size sh =
     withSimHash sh $ cSimHashInfer str out
     map realToFrac <$> peekArray size out
 
-saveToFile :: ByteString -> SimHash -> IO ()
-saveToFile fn sh = withSimHash sh $ cSimHashSaveToFile fn
+saveToFile :: FilePath -> SimHash -> IO ()
+saveToFile fn sh = withSimHash sh $ cSimHashSaveToFile bsFn
+  where bsFn = encodeUtf8 $ T.pack fn
 
 
-loadFromFile :: ByteString -> SimHash -> IO ()
-loadFromFile fn sh = withSimHash sh $ cSimHashLoadFromFile fn
+loadFromFile :: FilePath -> SimHash -> IO ()
+loadFromFile fn sh = withSimHash sh $ cSimHashLoadFromFile bsFn
+  where bsFn = encodeUtf8 $ T.pack fn
 
 
-loadFromFileV2 :: ByteString -> ByteString -> SimHash -> IO ()
+loadFromFileV2 :: FilePath -> FilePath -> SimHash -> IO ()
 loadFromFileV2 spFile clsrFile sh =
-  withSimHash sh $ cSimHashLoadFromFileV2 spFile clsrFile
+  withSimHash sh $ cSimHashLoadFromFileV2 bsSpFile bsClsrFile
+  where bsSpFile = encodeUtf8 $ T.pack spFile
+        bsClsrFile = encodeUtf8 $ T.pack clsrFile
