@@ -42,20 +42,20 @@ deleteCClassifier =
   [C.funPtr|void deleteClassifier(htm::Classifier* sdr){delete sdr;}|]
 
 cClassifierLearn :: Ptr CSdr -> C.CInt -> Ptr CClassifier -> IO ()
-cClassifierLearn patternPtr categoryIdx ptr =
+cClassifierLearn sdrPtr categoryIdx ptr =
   [C.block| void {
-    htm::SDR pattern($(htm::SDR* patternPtr)->dimensions);
-    pattern.setDense($(htm::SDR* patternPtr)->getDense());
-    $(htm::Classifier* ptr)->learn(pattern, $(int categoryIdx));
+    htm::SDR sdr($(htm::SDR* sdrPtr)->dimensions);
+    sdr.setDense($(htm::SDR* sdrPtr)->getDense());
+    $(htm::Classifier* ptr)->learn(sdr, $(int categoryIdx));
   }|]
 
 
 cClassifierInfer :: Ptr CSdr -> Ptr C.CDouble -> Ptr CClassifier -> IO ()
-cClassifierInfer patternPtr out ptr =
+cClassifierInfer sdrPtr out ptr =
   [C.block| void {
-    htm::SDR pattern($(htm::SDR* patternPtr)->dimensions);
-    pattern.setDense($(htm::SDR* patternPtr)->getDense());
-    htm::PDF ret = $(htm::Classifier* ptr)->infer(pattern);
+    htm::SDR sdr($(htm::SDR* sdrPtr)->dimensions);
+    sdr.setDense($(htm::SDR* sdrPtr)->getDense());
+    htm::PDF ret = $(htm::Classifier* ptr)->infer(sdr);
 
     for (int i=0;i<ret.size();i++) {
         $(double *out)[i] = ret[i];
@@ -91,17 +91,17 @@ withClassifier :: Classifier -> (Ptr CClassifier -> IO a) -> IO a
 withClassifier (Classifier fptr) = withForeignPtr fptr
 
 learn :: Sdr -> Int -> Classifier -> IO ()
-learn pattern categoryIdx clsr =
+learn sdr categoryIdx clsr =
   withClassifier clsr $ \ptr ->
-    withSdr pattern $ \patternPtr ->
-      cClassifierLearn patternPtr (fromIntegral categoryIdx) ptr
+    withSdr sdr $ \sdrPtr ->
+      cClassifierLearn sdrPtr (fromIntegral categoryIdx) ptr
 
 infer :: Sdr -> Int -> Classifier -> IO [Double]
-infer pattern size clsr =
+infer sdr size clsr =
   withClassifier clsr $ \ptr ->
-    withSdr pattern $ \patternPtr ->
+    withSdr sdr $ \sdrPtr ->
       allocaArray size $ \out -> do
-        cClassifierInfer patternPtr out ptr
+        cClassifierInfer sdrPtr out ptr
         map realToFrac <$> peekArray size out
 
 
