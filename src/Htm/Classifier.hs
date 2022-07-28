@@ -44,18 +44,14 @@ deleteCClassifier =
 cClassifierLearn :: Ptr CSdr -> C.CInt -> Ptr CClassifier -> IO ()
 cClassifierLearn sdrPtr categoryIdx ptr =
   [C.block| void {
-    htm::SDR sdr($(htm::SDR* sdrPtr)->dimensions);
-    sdr.setDense($(htm::SDR* sdrPtr)->getDense());
-    $(htm::Classifier* ptr)->learn(sdr, $(int categoryIdx));
+    $(htm::Classifier* ptr)->learn(*$(htm::SDR* sdrPtr), $(int categoryIdx));
   }|]
 
 
 cClassifierInfer :: Ptr CSdr -> Ptr C.CDouble -> Ptr CClassifier -> IO ()
 cClassifierInfer sdrPtr out ptr =
   [C.block| void {
-    htm::SDR sdr($(htm::SDR* sdrPtr)->dimensions);
-    sdr.setDense($(htm::SDR* sdrPtr)->getDense());
-    htm::PDF ret = $(htm::Classifier* ptr)->infer(sdr);
+    htm::PDF ret = $(htm::Classifier* ptr)->infer(*$(htm::SDR* sdrPtr));
 
     for (int i=0;i<ret.size();i++) {
         $(double *out)[i] = ret[i];
@@ -92,17 +88,16 @@ withClassifier (Classifier fptr) = withForeignPtr fptr
 
 learn :: Sdr -> Int -> Classifier -> IO ()
 learn sdr categoryIdx clsr =
-  withClassifier clsr $ \ptr ->
-    withSdr sdr $ \sdrPtr ->
-      cClassifierLearn sdrPtr (fromIntegral categoryIdx) ptr
+  withSdr sdr $ \sdrPtr ->
+    withClassifier clsr $
+        cClassifierLearn sdrPtr (fromIntegral categoryIdx)
 
 infer :: Sdr -> Int -> Classifier -> IO [Double]
 infer sdr size clsr =
-  withClassifier clsr $ \ptr ->
-    withSdr sdr $ \sdrPtr ->
-      allocaArray size $ \out -> do
-        cClassifierInfer sdrPtr out ptr
-        map realToFrac <$> peekArray size out
+  withSdr sdr $ \sdrPtr ->
+    allocaArray size $ \out -> do
+      withClassifier clsr $ cClassifierInfer sdrPtr out
+      map realToFrac <$> peekArray size out
 
 
 saveToFile :: Classifier -> ByteString -> IO ()

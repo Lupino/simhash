@@ -48,10 +48,7 @@ cSimHashDocumentEncoderEncode str sdrPtr ptr =
   [C.block| void {
     std::string str($bs-ptr:str);
     str.resize($bs-len:str);
-    htm::SDR* sdr = $(htm::SDR* sdrPtr);
-    htm::SDR output(sdr->dimensions);
-    $(htm::SimHashDocumentEncoder* ptr)->encode(str, output);
-    sdr->setDense(output.getDense());
+    $(htm::SimHashDocumentEncoder* ptr)->encode(str, *$(htm::SDR* sdrPtr));
   }|]
 
 newtype SimHashDocumentEncoder = SimHashDocumentEncoder (ForeignPtr CSimHashDocumentEncoder)
@@ -73,6 +70,6 @@ withSimHashDocumentEncoder (SimHashDocumentEncoder fptr) = withForeignPtr fptr
 
 encode :: ByteString -> Sdr -> SimHashDocumentEncoder -> IO ()
 encode str sdr encoder =
-  withSimHashDocumentEncoder encoder $ \ptr ->
-    withSdr sdr $ \sdrPtr ->
-      cSimHashDocumentEncoderEncode str sdrPtr ptr
+  withSdr sdr $ \sdrPtr ->
+    withSimHashDocumentEncoder encoder $
+      cSimHashDocumentEncoderEncode str sdrPtr

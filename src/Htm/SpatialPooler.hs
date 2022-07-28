@@ -43,12 +43,7 @@ deleteCSpatialPooler =
 cSpatialPoolerCompute :: Ptr CSdr -> C.CBool -> Ptr CSdr -> Ptr CSpatialPooler -> IO ()
 cSpatialPoolerCompute inputPtr learn activePtr ptr =
   [C.block| void {
-    htm::SpatialPooler* sp = $(htm::SpatialPooler* ptr);
-    htm::SDR input(sp->getInputDimensions());
-    htm::SDR active(sp->getColumnDimensions());
-    input.setDense($(htm::SDR* inputPtr)->getDense());
-    sp->compute(input, $(bool learn), active);
-    $(htm::SDR* activePtr)->setDense(active.getDense());
+    $(htm::SpatialPooler* ptr)->compute(*$(htm::SDR* inputPtr), $(bool learn), *$(htm::SDR* activePtr));
   }|]
 
 
@@ -81,10 +76,10 @@ withSpatialPooler (SpatialPooler fptr) = withForeignPtr fptr
 
 compute :: Sdr -> Bool -> Sdr -> SpatialPooler -> IO ()
 compute input learn active sp =
-  withSpatialPooler sp $ \ptr ->
-    withSdr input $ \inputPtr ->
-      withSdr active $ \activePtr ->
-        cSpatialPoolerCompute inputPtr (fromBool learn) activePtr ptr
+  withSdr input $ \inputPtr ->
+    withSdr active $ \activePtr ->
+      withSpatialPooler sp $
+        cSpatialPoolerCompute inputPtr (fromBool learn) activePtr
 
 
 saveToFile :: SpatialPooler -> ByteString -> IO ()
