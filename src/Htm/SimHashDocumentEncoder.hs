@@ -14,6 +14,8 @@ module Htm.SimHashDocumentEncoder
 
 
 import           Control.Exception     (mask_)
+import           Data.Aeson            (FromJSON, parseJSON, withObject, (.!=),
+                                        (.:?))
 import           Data.ByteString       (ByteString)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
@@ -21,6 +23,7 @@ import           Foreign.Marshal.Utils (fromBool)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
 import qualified Language.C.Inline.Cpp as C
+
 
 data CSimHashDocumentEncoder
 C.context (C.cppCtx <> C.bsCtx <> C.cppTypePairs
@@ -59,6 +62,13 @@ data SimHashDocumentEncoderOpts = SimHashDocumentEncoderOpts
   , optTokenSimilarity :: Bool
   }
   deriving Show
+
+instance FromJSON SimHashDocumentEncoderOpts where
+  parseJSON = withObject "SimHashDocumentEncoderOpts" $ \o -> do
+    optSize            <- o .:? "size" .!= 600
+    optSparsity        <- o .:? "sparsity" .!= 0.2
+    optTokenSimilarity <- o .:? "token_similarity" .!= True
+    return SimHashDocumentEncoderOpts {..}
 
 new :: SimHashDocumentEncoderOpts -> IO SimHashDocumentEncoder
 new SimHashDocumentEncoderOpts {..} = mask_ $ do

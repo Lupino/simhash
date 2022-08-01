@@ -21,6 +21,7 @@ import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
 import           Foreign.Marshal.Utils (fromBool)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
+import           Htm.Utils             (toBS)
 import qualified Language.C.Inline.Cpp as C
 
 data CSpatialPooler
@@ -82,9 +83,11 @@ compute input learn active sp =
         cSpatialPoolerCompute inputPtr (fromBool learn) activePtr
 
 
-saveToFile :: SpatialPooler -> ByteString -> IO ()
-saveToFile sh fn = withSpatialPooler sh $ cSpatialPoolerSaveToFile fn
+saveToFile :: FilePath -> SpatialPooler -> IO ()
+saveToFile fn sp = withSpatialPooler sp $ cSpatialPoolerSaveToFile bsFn
+  where bsFn = toBS fn
 
 
-loadFromFile :: SpatialPooler -> ByteString -> IO ()
-loadFromFile sh fn = withSpatialPooler sh $ cSpatialPoolerLoadFromFile fn
+loadFromFile :: FilePath -> SpatialPooler -> IO ()
+loadFromFile fn sp = withSpatialPooler sp $ cSpatialPoolerLoadFromFile bsFn
+  where bsFn = toBS fn

@@ -74,11 +74,12 @@ library
                      , Htm.SimHashDocumentEncoder
                      , Htm.SpatialPooler
                      , Htm.Classifier
-                     , Htm.Train
                      , Htm.Utils
                      , Htm.Stats
                      , Htm.SimHash
                      , Htm.Model
+                     , Htm.V1
+                     , Htm.V2
                      , Htm.Runner
   build-depends:       base >= 4.7 && < 5
                      , periodic-client
@@ -89,6 +90,7 @@ library
                      , directory
                      , inline-c
                      , inline-c-cpp
+                     , yaml
 
                      , mtl
                      , unliftio

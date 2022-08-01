@@ -4,6 +4,8 @@ module Htm.Utils
   , argmax
   , prettyTime
   , splitLabelAndMsg
+  , toBS
+  , whenExists
   ) where
 
 
@@ -13,10 +15,14 @@ import           Data.ByteString    (ByteString)
 import           Data.Int           (Int64)
 import           Data.List          (elemIndex)
 import           Data.Text          (Text)
-import qualified Data.Text          as T (drop, length, null, strip, takeWhile)
+import qualified Data.Text          as T (drop, length, null, pack, strip,
+                                          takeWhile)
 import           Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.IO       as T (hGetLine)
-import           UnliftIO
+import           System.Directory   (doesFileExist)
+import           UnliftIO           (IOMode (..), MonadIO, TVar, atomically,
+                                     hClose, hIsEOF, openFile, readTVar,
+                                     writeTVar)
 
 
 getLabelIdx :: MonadIO m => TVar [Text] -> Text -> m Int
@@ -66,3 +72,12 @@ prettyTime t0
         t1 = floor $ fromIntegral t0 / 60
         m = t1 `mod` 60
         h = floor $ fromIntegral t1 / 60
+
+toBS :: String -> ByteString
+toBS = encodeUtf8 . T.pack
+
+
+whenExists :: FilePath -> IO () -> IO ()
+whenExists fp io = do
+  exists <- doesFileExist fp
+  when exists io

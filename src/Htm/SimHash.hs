@@ -18,12 +18,11 @@ module Htm.SimHash
 
 import           Control.Exception     (mask_)
 import           Data.ByteString       (ByteString)
-import qualified Data.Text             as T (pack)
-import           Data.Text.Encoding    (encodeUtf8)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
+import           Htm.Utils             (toBS)
 import qualified Language.C.Inline.Cpp as C
 
 data CSimHash
@@ -121,16 +120,16 @@ infer str size sh =
 
 saveToFile :: FilePath -> SimHash -> IO ()
 saveToFile fn sh = withSimHash sh $ cSimHashSaveToFile bsFn
-  where bsFn = encodeUtf8 $ T.pack fn
+  where bsFn = toBS fn
 
 
 loadFromFile :: FilePath -> SimHash -> IO ()
 loadFromFile fn sh = withSimHash sh $ cSimHashLoadFromFile bsFn
-  where bsFn = encodeUtf8 $ T.pack fn
+  where bsFn = toBS fn
 
 
 loadFromFileV2 :: FilePath -> FilePath -> SimHash -> IO ()
 loadFromFileV2 spFile clsrFile sh =
   withSimHash sh $ cSimHashLoadFromFileV2 bsSpFile bsClsrFile
-  where bsSpFile = encodeUtf8 $ T.pack spFile
-        bsClsrFile = encodeUtf8 $ T.pack clsrFile
+  where bsSpFile = toBS spFile
+        bsClsrFile = toBS clsrFile

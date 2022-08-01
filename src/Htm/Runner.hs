@@ -14,14 +14,11 @@ module Htm.Runner
 
 import           Control.Monad   (forM_, forever, unless, void)
 import           Data.ByteString (ByteString)
-import           Data.List       (sortBy)
 import           Data.Text       (Text)
-import           Htm.Model       (Model (..), loadModel, saveModel)
-import           Htm.SimHash     (infer, learn)
-import           Htm.Utils       (getLabelIdx)
+import           Htm.Model       (Model (..), infer)
 import           UnliftIO        (Async, MonadIO, TMVar, TQueue, TVar, async,
                                   atomically, newEmptyTMVarIO, newTQueueIO,
-                                  newTVarIO, readTQueue, readTVar, readTVarIO,
+                                  newTVarIO, readTQueue, readTVar,
                                   registerDelay, retrySTM, takeTMVar,
                                   tryPutTMVar, writeTQueue, writeTVar)
 
@@ -45,9 +42,9 @@ data Runner = Runner
   }
 
 
-newRunner :: Queue -> FilePath -> IO Runner
-newRunner runnerQueue path = do
-  runnerModel <- loadModel path
+newRunner :: Queue -> IO Model -> IO Runner
+newRunner runnerQueue loadModel = do
+  runnerModel <- loadModel
   runnerSaver <- newTVarIO Nothing
   pure Runner {..}
 
@@ -56,32 +53,21 @@ runRunner :: Runner -> IO ()
 runRunner Runner {..} = do
   Item {..} <- atomically $ readTQueue runnerQueue
   forM_ itemRet $ \ret -> do
-    labels <- readTVarIO labelTVar
-    let size = length labels
-    infers <- infer itemMsg size m
-    atomically
-      . void
-      . tryPutTMVar ret
-      $! take 10
-      . sortBy (\(_, a) (_, b) -> compare b a)
-      $ zip labels infers
+    infers <- infer itemMsg runnerModel
+    void $ atomically . tryPutTMVar ret $! take 10 infers
 
   forM_ itemLabel $ \label -> do
-    idx <- getLabelIdx labelTVar label
-    learn itemMsg idx m
-
+    modelLearn runnerModel itemMsg label
     doSave <- registerDelay delayUS
     atomically $ writeTVar runnerSaver $ Just doSave
 
 
-  where labelTVar = labelHandle runnerModel
-        m = simhash runnerModel
-        delayUS = 60000000 -- 60s
+  where delayUS = 60000000 -- 60s
 
 
-startRunner :: Queue -> FilePath -> IO (Runner, Async ())
-startRunner queue path = do
-  runner <- newRunner queue path
+startRunner :: Queue -> IO Model -> IO (Runner, Async ())
+startRunner queue loadModel = do
+  runner <- newRunner queue loadModel
   io <- async $ forever $ runRunner runner
   pure (runner, io)
 
@@ -96,7 +82,7 @@ startSaver Runner {..} = async $ forever $ do
         doSave <- readTVar saver
         unless doSave retrySTM
 
-  saveModel runnerModel
+  modelSave runnerModel
 
 
 inferOne :: MonadIO m => Queue -> ByteString -> m [(Text, Double)]

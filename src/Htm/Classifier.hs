@@ -22,6 +22,7 @@ import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
 import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
+import           Htm.Utils             (toBS)
 import qualified Language.C.Inline.Cpp as C
 
 data CClassifier
@@ -100,9 +101,11 @@ infer sdr size clsr =
       map realToFrac <$> peekArray size out
 
 
-saveToFile :: Classifier -> ByteString -> IO ()
-saveToFile sh fn = withClassifier sh $ cClassifierSaveToFile fn
+saveToFile :: FilePath -> Classifier -> IO ()
+saveToFile fn clsr = withClassifier clsr $ cClassifierSaveToFile bsFn
+  where bsFn = toBS fn
 
 
-loadFromFile :: Classifier -> ByteString -> IO ()
-loadFromFile sh fn = withClassifier sh $ cClassifierLoadFromFile fn
+loadFromFile :: FilePath -> Classifier -> IO ()
+loadFromFile fn clsr = withClassifier clsr $ cClassifierLoadFromFile bsFn
+  where bsFn = toBS fn

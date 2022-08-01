@@ -12,7 +12,9 @@ import           Data.String                (fromString)
 import           Htm.Model                  (trainAndValid)
 import           Htm.Runner                 (inferOne, newQueue, startRunner,
                                              startSaver)
-import qualified Htm.Train                  as Train
+import           Htm.Stats                  (saveStatsToFile)
+import qualified Htm.V1                     as V1
+import qualified Htm.V2                     as V2
 import           Options.Applicative
 import           Options.Applicative.Arrows
 import           Periodic.Worker            (addFunc, startWorkerM, work)
@@ -32,6 +34,9 @@ data Command
   | Infer PeriodicOpts Int
   | InferLearn PeriodicOpts
   | TrainV2 FilePath FilePath
+  | TestV2 String
+  | InferV2 PeriodicOpts Int
+  | InferLearnV2 PeriodicOpts
   deriving Show
 
 
@@ -107,6 +112,14 @@ testParser = Test
     <> metavar "STRING"
     <> value "")
 
+testV2Parser :: Parser Command
+testV2Parser = TestV2
+  <$> strOption
+    ( long "str"
+    <> short 's'
+    <> metavar "STRING"
+    <> value "")
+
 
 inferParser :: Parser Command
 inferParser = runA $ proc () -> do
@@ -119,10 +132,29 @@ inferParser = runA $ proc () -> do
 
   returnA -< Infer opts runnerSize
 
+
+inferV2Parser :: Parser Command
+inferV2Parser = runA $ proc () -> do
+  opts <- asA periodicOpts -< ()
+  runnerSize <- (asA . option auto)
+            ( long "runner-size"
+           <> short 's'
+           <> metavar "RUNNER SIZE"
+           <> value 10 ) -< ()
+
+  returnA -< InferV2 opts runnerSize
+
+
 inferLearnParser :: Parser Command
 inferLearnParser = runA $ proc () -> do
   opts <- asA periodicOpts -< ()
   returnA -< InferLearn opts
+
+
+inferLearnV2Parser :: Parser Command
+inferLearnV2Parser = runA $ proc () -> do
+  opts <- asA periodicOpts -< ()
+  returnA -< InferLearnV2 opts
 
 
 version :: Parser (a -> a)
@@ -149,35 +181,68 @@ parser = runA $ proc () -> do
            <> command "v2-train"
               (info trainV2Parser
                     (progDesc "Train simhash model v2"))
+           <> command "v2-test"
+              (info testParser
+                    (progDesc "Test a string v2"))
+           <> command "v2-infer"
+              (info inferParser
+                    (progDesc "Run infer task v2"))
+           <> command "v2-infer-learn"
+              (info inferLearnParser
+                    (progDesc "Run infer learn task v2"))
             ) -< ()
   A version >>> A helper -< Args opts cmds
 
 
 program :: Args -> IO ()
-program (Args CommonOpts{..} (Train trainFile validFile)) =
-  trainAndValid optModelFile trainFile validFile
+program (Args CommonOpts{..} (Train trainFile validFile)) = do
+  model <- V1.loadModel optModelFile
+  stats <- trainAndValid model trainFile validFile
+  saveStatsToFile (optModelFile ++ ".stats.json") stats
 program (Args CommonOpts{..} (Test s)) = do
   queue <- newQueue
-  void $ startRunner queue optModelFile
+  void $ startRunner queue $ V1.loadModel optModelFile
   ret <- inferOne queue (fromString s)
   print ret
 program (Args CommonOpts{..} (Infer PeriodicOpts {..} runnerSize)) = do
   queues <- newQueues
   replicateM_ runnerSize $ do
     queue <-  newRQueue queues
-    void $ startRunner queue optModelFile
+    void $ startRunner queue $ V1.loadModel optModelFile
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferTask queues
     work optWorkSize
 program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
   queue <- newQueue
-  (runner, _) <- startRunner queue optModelFile
+  (runner, _) <- startRunner queue $ V1.loadModel optModelFile
   void $ startSaver runner
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferLearnTask queue
     work optWorkSize
-program (Args CommonOpts{..} (TrainV2 dataFile testFile)) = do
-  Train.train optModelFile dataFile testFile
+program (Args CommonOpts{..} (TrainV2 trainFile validFile)) = do
+  model <- V2.loadModel optModelFile
+  stats <- trainAndValid model trainFile validFile
+  saveStatsToFile (optModelFile ++ ".stats.json") stats
+program (Args CommonOpts{..} (TestV2 s)) = do
+  queue <- newQueue
+  void $ startRunner queue $ V2.loadModel optModelFile
+  ret <- inferOne queue (fromString s)
+  print ret
+program (Args CommonOpts{..} (InferV2 PeriodicOpts {..} runnerSize)) = do
+  queues <- newQueues
+  replicateM_ runnerSize $ do
+    queue <-  newRQueue queues
+    void $ startRunner queue $ V2.loadModel optModelFile
+  startWorkerM optHost $ do
+    addFunc (fromString optFuncName) $ inferTask queues
+    work optWorkSize
+program (Args CommonOpts{..} (InferLearnV2 PeriodicOpts {..})) = do
+  queue <- newQueue
+  (runner, _) <- startRunner queue $ V2.loadModel optModelFile
+  void $ startSaver runner
+  startWorkerM optHost $ do
+    addFunc (fromString optFuncName) $ inferLearnTask queue
+    work optWorkSize
 
 pinfo :: ParserInfo Args
 pinfo = info parser
