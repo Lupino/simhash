@@ -109,7 +109,7 @@ trainAndValid model@Model {..} trainFile validFile = do
 
 
 prettyProc :: Int -> Int -> String
-prettyProc total proc = show $ fromIntegral (floor (prec * 10000)) / 100
+prettyProc total proc = show (fromIntegral (floor (prec * 10000)) / 100) ++ "%"
   where prec = fromIntegral proc / fromIntegral total
 
 
