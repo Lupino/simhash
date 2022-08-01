@@ -41,20 +41,32 @@ infer str Model {..} = do
   pure $ sortBy (\(_, a) (_, b) -> compare b a) $ zip labels infers
 
 
+countSample :: FilePath -> IO Int
+countSample dataFile = do
+  v <- newTVarIO 0
+  readLineAndDo dataFile $ \_ _ ->
+    atomically $ modifyTVar' v (+1)
+
+  readTVarIO v
+
+
+
 train :: Model -> FilePath -> Int64 -> TVar Int64 -> TVar Int -> IO ()
 train Model {..} dataFile startedAt timerH totalH = do
+  total <- countSample dataFile
   readLineAndDo dataFile $ \str label -> do
     atomically $ modifyTVar' totalH (+1)
     modelLearn str label
-    showStats "Train" startedAt timerH totalH False Nothing
+    showStats "Train" startedAt timerH totalH total False Nothing
 
   modelSave
-  showStats "Train" startedAt timerH totalH True Nothing
+  showStats "Train" startedAt timerH totalH total True Nothing
 
 
 test :: Model -> FilePath -> Int64 -> TVar Int64 -> TVar Int -> TVar Int -> IO ()
 test Model {..} testFile startedAt timerH totalH rightH = do
   size <- length <$> readTVarIO modelLabels
+  total <- countSample testFile
 
   readLineAndDo testFile $ \str label -> do
     atomically $ modifyTVar' totalH (+1)
@@ -62,15 +74,15 @@ test Model {..} testFile startedAt timerH totalH rightH = do
     idx <- getLabelIdx modelLabels label
 
     when (argmax infers == idx) $ atomically $ modifyTVar' rightH (+1)
-    showStats "Test" startedAt timerH totalH False $ Just showScore
+    showStats "Test" startedAt timerH totalH total False $ Just showScore
 
-  showStats "Test" startedAt timerH totalH True $ Just showScore
+  showStats "Test" startedAt timerH totalH total True $ Just showScore
 
   where showScore :: IO ()
         showScore = do
           right <- readTVarIO rightH
           total <- readTVarIO totalH
-          putStrLn $ "Test score " ++ show (fromIntegral right / fromIntegral total)
+          putStrLn $ "Test score " ++ prettyProc total right
 
 
 trainAndValid :: Model -> FilePath -> FilePath -> IO Stats
@@ -96,15 +108,20 @@ trainAndValid model@Model {..} trainFile validFile = do
     }
 
 
-showStats :: String -> Int64 -> TVar Int64 -> TVar Int -> Bool -> Maybe (IO ()) -> IO ()
-showStats name startedAt timerH procH force mEvent = do
+prettyProc :: Int -> Int -> String
+prettyProc total proc = show $ fromIntegral (floor (prec * 10000)) / 100
+  where prec = fromIntegral proc / fromIntegral total
+
+
+showStats :: String -> Int64 -> TVar Int64 -> TVar Int -> Int -> Bool -> Maybe (IO ()) -> IO ()
+showStats name startedAt timerH procH total force mEvent = do
   proc <- readTVarIO procH
   when (proc `mod` 1024 == 0 || force) $ do
     timer <- readTVarIO timerH
     now <- getEpochTime
     when ((now - timer) > 60 || force) $ do
       atomically $ writeTVar timerH now
-      putStrLn $ name ++ " iters " ++ show proc
+      putStrLn $ name ++ " iters " ++ show proc ++ "/" ++ show total ++ " " ++ prettyProc total proc
       case mEvent of
         Nothing    -> pure ()
         Just event -> event
