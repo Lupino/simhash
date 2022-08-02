@@ -99,13 +99,10 @@ trainAndValid model@Model {..} trainFile validFile = do
 
   trainCount <- readTVarIO totalH
   testCount  <- readTVarIO testTotalH
-  rightCount <- readTVarIO testRightH
+  validCount <- readTVarIO testRightH
 
   testFinishedAt <- getEpochTime
-  pure Stats
-    { testScore       = floor (fromIntegral rightCount * 10000 / fromIntegral testCount)
-    , ..
-    }
+  pure Stats {..}
 
 
 prettyProc :: Int -> Int -> String
