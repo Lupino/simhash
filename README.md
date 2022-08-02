@@ -98,3 +98,14 @@ Recommend build `simhash` with [`stack`](https://docs.haskellstack.org/en/stable
 ## Deploy Infer Learn
 
     $ ./bin/simhash-runner -f sample/v2-sample v2-infer-learn -H tcp://127.0.0.1:5000 -n v1-sample -w 10
+
+## Custom model options
+
+Option file name is `path/to/model_name.opts.yml`
+
+
+    column_size: 1600
+    encoder:
+      size: 600
+      sparsity: 0.2
+      token_similarity: true

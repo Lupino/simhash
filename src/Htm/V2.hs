@@ -44,8 +44,8 @@ data V2Opts = V2Opts
 
 instance FromJSON V2Opts where
   parseJSON = withObject "V2Opts" $ \o -> do
-    optEncoderOpts            <- o .: "encoder"
-    optColumnSize <- o .:? "column_size" .!= 1600
+    optEncoderOpts <- o .: "encoder"
+    optColumnSize  <- o .:? "column_size" .!= 1600
     return V2Opts {..}
 
 
