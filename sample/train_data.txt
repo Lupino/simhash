@@ -1,0 +1,6 @@
+label1, some data 1
+label1, some data 2
+label2, some data 3
+label2, some data 4
+label1, some data 5
+label1, some data 6
