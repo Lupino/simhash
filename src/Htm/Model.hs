@@ -57,14 +57,14 @@ train Model {..} dataFile startedAt timerH totalH = do
   readLineAndDo dataFile $ \str label -> do
     atomically $ modifyTVar' totalH (+1)
     modelLearn str label
-    showStats "Train" startedAt timerH totalH total False Nothing
+    showStats "Train" startedAt startedAt timerH totalH total False Nothing
 
   modelSave
-  showStats "Train" startedAt timerH totalH total True Nothing
+  showStats "Train" startedAt startedAt timerH totalH total True Nothing
 
 
-test :: Model -> FilePath -> Int64 -> TVar Int64 -> TVar Int -> TVar Int -> IO ()
-test Model {..} testFile startedAt timerH totalH rightH = do
+test :: Model -> FilePath -> Int64 -> Int64 -> TVar Int64 -> TVar Int -> TVar Int -> IO ()
+test Model {..} testFile startedAt testStartedAt timerH totalH validH = do
   size <- length <$> readTVarIO modelLabels
   total <- countSample testFile
 
@@ -73,16 +73,16 @@ test Model {..} testFile startedAt timerH totalH rightH = do
     infers <- modelInfer str size
     idx <- getLabelIdx modelLabels label
 
-    when (argmax infers == idx) $ atomically $ modifyTVar' rightH (+1)
-    showStats "Test" startedAt timerH totalH total False $ Just showScore
+    when (argmax infers == idx) $ atomically $ modifyTVar' validH (+1)
+    showStats "Test" startedAt testStartedAt timerH totalH total False $ Just showScore
 
-  showStats "Test" startedAt timerH totalH total True $ Just showScore
+  showStats "Test" startedAt testStartedAt timerH totalH total True $ Just showScore
 
   where showScore :: IO ()
         showScore = do
-          right <- readTVarIO rightH
+          valid <- readTVarIO validH
           total <- readTVarIO totalH
-          putStrLn $ "Test score " ++ prettyProc total right
+          putStrLn $ "Test score " ++ prettyProc total valid
 
 
 trainAndValid :: Model -> FilePath -> FilePath -> IO Stats
@@ -94,12 +94,12 @@ trainAndValid model@Model {..} trainFile validFile = do
 
   testStartedAt <- getEpochTime
   testTotalH <- newTVarIO 0
-  testRightH <- newTVarIO 0
-  test model validFile trainStartedAt timerH totalH testRightH
+  testValidH <- newTVarIO 0
+  test model validFile trainStartedAt testStartedAt timerH testTotalH testValidH
 
   trainCount <- readTVarIO totalH
   testCount  <- readTVarIO testTotalH
-  validCount <- readTVarIO testRightH
+  validCount <- readTVarIO testValidH
 
   testFinishedAt <- getEpochTime
   pure Stats {..}
@@ -110,8 +110,8 @@ prettyProc total proc = show (fromIntegral (floor (prec * 10000)) / 100) ++ "%"
   where prec = fromIntegral proc / fromIntegral total
 
 
-showStats :: String -> Int64 -> TVar Int64 -> TVar Int -> Int -> Bool -> Maybe (IO ()) -> IO ()
-showStats name startedAt timerH procH total force mEvent = do
+showStats :: String -> Int64 -> Int64 -> TVar Int64 -> TVar Int -> Int -> Bool -> Maybe (IO ()) -> IO ()
+showStats name startedAt currentStartedAt timerH procH total force mEvent = do
   proc <- readTVarIO procH
   when (proc `mod` 1024 == 0 || force) $ do
     timer <- readTVarIO timerH
@@ -123,7 +123,9 @@ showStats name startedAt timerH procH total force mEvent = do
         Nothing    -> pure ()
         Just event -> event
 
-      putStrLn $ "Spent " ++ prettyTime (now - startedAt)
+      putStrLn $ name ++ " Spent " ++ prettyTime (now - currentStartedAt)
+      putStrLn $ name ++ " Finished in " ++ prettyTime (floor (fromIntegral (now - currentStartedAt) / fromIntegral proc * fromIntegral total))
+      putStrLn $ "Total Spent " ++ prettyTime (now - startedAt)
 
 
 loadLabels :: FilePath -> TVar [Text] -> IO ()
