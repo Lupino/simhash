@@ -203,8 +203,9 @@ parser = runA $ proc () -> do
 
 program :: Args -> IO ()
 program (Args CommonOpts{..} (Train trainFile validFile iters)) = do
-  model <- V1.loadModel optModelFile
-  trainAndValid model trainFile validFile (optModelFile ++ ".stats.json") iters
+  trainAndValid
+    (V1.loadModel optModelFile) trainFile validFile
+    (optModelFile ++ ".stats.json") iters
 program (Args CommonOpts{..} (Test s)) = do
   queue <- newQueue
   void $ startRunner queue $ V1.loadModel optModelFile
@@ -226,8 +227,10 @@ program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
     addFunc (fromString optFuncName) $ inferLearnTask queue
     work optWorkSize
 program (Args CommonOpts{..} (TrainV2 trainFile validFile iters)) = do
-  model <- V2.loadModel optModelFile
-  trainAndValid model trainFile validFile (optModelFile ++ ".stats.json") iters
+
+  trainAndValid
+    (V2.loadModel optModelFile) trainFile validFile
+    (optModelFile ++ ".stats.json") iters
 program (Args CommonOpts{..} (TestV2 s)) = do
   queue <- newQueue
   void $ startRunner queue $ V2.loadModel optModelFile

@@ -108,8 +108,8 @@ trainAndValidOne model@Model {..} trainFile validFile reset showTrainProc showTe
     , ..
     }
 
-trainAndValid :: Model -> FilePath -> FilePath -> FilePath -> Int -> IO ()
-trainAndValid m trainFile validFile statFile iters = do
+trainAndValid :: IO Model -> FilePath -> FilePath -> FilePath -> Int -> IO ()
+trainAndValid io trainFile validFile statFile iters = do
   startedAt <- getEpochTime
   timerH <- newTVarIO startedAt
   proccedH <- newTVarIO 0
@@ -122,6 +122,7 @@ trainAndValid m trainFile validFile statFile iters = do
       showProc = showStats startedAt timerH iterH iters sampleProcced totalSample proccedH
 
   replicateM_ iters $ do
+    m <- io
     atomically $ modifyTVar' iterH (+1)
     stats <- trainAndValidOne m trainFile validFile
               (resetProcced proccedH)
