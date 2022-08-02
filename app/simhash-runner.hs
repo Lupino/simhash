@@ -12,7 +12,6 @@ import           Data.String                (fromString)
 import           Htm.Model                  (trainAndValid)
 import           Htm.Runner                 (inferOne, newQueue, startRunner,
                                              startSaver)
-import           Htm.Stats                  (saveStatsToFile)
 import qualified Htm.V1                     as V1
 import qualified Htm.V2                     as V2
 import           Options.Applicative
@@ -29,11 +28,11 @@ newtype CommonOpts = CommonOpts
   deriving Show
 
 data Command
-  = Train FilePath FilePath
+  = Train FilePath FilePath Int
   | Test String
   | Infer PeriodicOpts Int
   | InferLearn PeriodicOpts
-  | TrainV2 FilePath FilePath
+  | TrainV2 FilePath FilePath Int
   | TestV2 String
   | InferV2 PeriodicOpts Int
   | InferLearnV2 PeriodicOpts
@@ -90,6 +89,10 @@ trainParser = Train
     <> short 't'
     <> metavar "TEST FILE"
     <> value "test.txt")
+  <*> option auto
+    ( long "iters"
+    <> metavar "ITERS"
+    <> value 1)
 
 trainV2Parser :: Parser Command
 trainV2Parser = TrainV2
@@ -103,6 +106,10 @@ trainV2Parser = TrainV2
     <> short 't'
     <> metavar "TEST FILE"
     <> value "test.txt")
+  <*> option auto
+    ( long "iters"
+    <> metavar "ITERS"
+    <> value 1)
 
 testParser :: Parser Command
 testParser = Test
@@ -195,10 +202,9 @@ parser = runA $ proc () -> do
 
 
 program :: Args -> IO ()
-program (Args CommonOpts{..} (Train trainFile validFile)) = do
+program (Args CommonOpts{..} (Train trainFile validFile iters)) = do
   model <- V1.loadModel optModelFile
-  stats <- trainAndValid model trainFile validFile
-  saveStatsToFile (optModelFile ++ ".stats.json") stats
+  trainAndValid model trainFile validFile (optModelFile ++ ".stats.json") iters
 program (Args CommonOpts{..} (Test s)) = do
   queue <- newQueue
   void $ startRunner queue $ V1.loadModel optModelFile
@@ -219,10 +225,9 @@ program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferLearnTask queue
     work optWorkSize
-program (Args CommonOpts{..} (TrainV2 trainFile validFile)) = do
+program (Args CommonOpts{..} (TrainV2 trainFile validFile iters)) = do
   model <- V2.loadModel optModelFile
-  stats <- trainAndValid model trainFile validFile
-  saveStatsToFile (optModelFile ++ ".stats.json") stats
+  trainAndValid model trainFile validFile (optModelFile ++ ".stats.json") iters
 program (Args CommonOpts{..} (TestV2 s)) = do
   queue <- newQueue
   void $ startRunner queue $ V2.loadModel optModelFile
