@@ -26,9 +26,9 @@ in pkgs.haskell-nix.cabalProject {
       src = ./.;
       name = "simhash";
     };
-    index-state = "2022-07-15T00:00:00Z";
-    index-sha256 = "03b52bfba257b1106cf591fa4300abff1285735698cf532d274736ae4e394663";
-    plan-sha256 = if compiler-nix-name == "ghc923" then "0x0qrfg43jnqf152axjd1fchnr3icbksv6z9fj1dzhcf3hwqq74w" else null;
+    index-state = "2022-07-30T00:00:00Z";
+    index-sha256 = "7527fad4a05f900f88c98a17dd78173a7e225c56ca7f8a7168af1d232d2c72ed";
+    plan-sha256 = if compiler-nix-name == "ghc923" then "1x3j427aj4hs5ivjl5wdrlidl7pxl3wv7gfy9afqdrfxhbb4cxzn" else null;
     materialized = if compiler-nix-name == "ghc923" then ./nix/materialized else null;
     # Specify the GHC version to use.
     compiler-nix-name = compiler-nix-name;

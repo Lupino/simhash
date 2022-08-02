@@ -42,12 +42,26 @@
           (hsPkgs."directory" or (errorHandler.buildDepError "directory"))
           (hsPkgs."inline-c" or (errorHandler.buildDepError "inline-c"))
           (hsPkgs."inline-c-cpp" or (errorHandler.buildDepError "inline-c-cpp"))
+          (hsPkgs."yaml" or (errorHandler.buildDepError "yaml"))
           (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
           (hsPkgs."unliftio" or (errorHandler.buildDepError "unliftio"))
           ];
         libs = (pkgs.lib).optional (system.isOsx) (pkgs."boost_filesystem" or (errorHandler.sysDepError "boost_filesystem"));
         buildable = true;
-        modules = [ "SimHash" ];
+        modules = [
+          "SimHash"
+          "Htm/Sdr"
+          "Htm/SimHashDocumentEncoder"
+          "Htm/SpatialPooler"
+          "Htm/Classifier"
+          "Htm/Utils"
+          "Htm/Stats"
+          "Htm/SimHash"
+          "Htm/Model"
+          "Htm/V1"
+          "Htm/V2"
+          "Htm/Runner"
+          ];
         cxxSources = [
           "cxx-src/htm.core/src/htm/types/Sdr.cpp"
           "cxx-src/htm.core/src/htm/algorithms/Connections.cpp"
@@ -73,17 +87,7 @@
           ];
         };
       exes = {
-        "simhash-train" = {
-          depends = [
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."simhash" or (errorHandler.buildDepError "simhash"))
-            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
-            ];
-          buildable = true;
-          hsSourceDirs = [ "app" ];
-          mainPath = [ "simhash-train.hs" ];
-          };
-        "simhash-infer" = {
+        "simhash-runner" = {
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."simhash" or (errorHandler.buildDepError "simhash"))
@@ -92,18 +96,7 @@
             ];
           buildable = true;
           hsSourceDirs = [ "app" ];
-          mainPath = [ "simhash-infer.hs" ];
-          };
-        "simhash-infer-learn" = {
-          depends = [
-            (hsPkgs."base" or (errorHandler.buildDepError "base"))
-            (hsPkgs."simhash" or (errorHandler.buildDepError "simhash"))
-            (hsPkgs."periodic-client" or (errorHandler.buildDepError "periodic-client"))
-            (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
-            ];
-          buildable = true;
-          hsSourceDirs = [ "app" ];
-          mainPath = [ "simhash-infer-learn.hs" ];
+          mainPath = [ "simhash-runner.hs" ];
           };
         };
       };
