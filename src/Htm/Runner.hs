@@ -83,6 +83,7 @@ startSaver Runner {..} = async $ forever $ do
         unless doSave retrySTM
 
   modelSave runnerModel
+  atomically $ writeTVar runnerSaver Nothing
 
 
 inferOne :: MonadIO m => Queue -> ByteString -> m [(Text, Double)]
