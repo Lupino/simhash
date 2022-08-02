@@ -123,8 +123,11 @@ showStats name startedAt currentStartedAt timerH procH total force mEvent = do
         Nothing    -> pure ()
         Just event -> event
 
-      putStrLn $ name ++ " Spent " ++ prettyTime (now - currentStartedAt)
-      putStrLn $ name ++ " Finished in " ++ prettyTime (floor (fromIntegral (now - currentStartedAt) / fromIntegral proc * fromIntegral total))
+      let procced = now - currentStartedAt
+          totalSpent = floor (fromIntegral procced / fromIntegral proc * fromIntegral total)
+
+      putStrLn $ name ++ " Spent " ++ prettyTime procced
+      putStrLn $ name ++ " will be finished in " ++ prettyTime (totalSpent - procced)
       putStrLn $ "Total Spent " ++ prettyTime (now - startedAt)
 
 
