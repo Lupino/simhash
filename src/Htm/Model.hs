@@ -113,14 +113,20 @@ trainAndValid m trainFile validFile statFile iters = do
   startedAt <- getEpochTime
   timerH <- newTVarIO startedAt
   proccedH <- newTVarIO 0
+  sampleProcced <- newTVarIO 0
   trainCount <- countSample trainFile
   testCount <- countSample validFile
+  iterH <- newTVarIO 0
+
+  let totalSample = (trainCount + testCount) * iters
+      showProc = showStats startedAt timerH iterH iters sampleProcced totalSample proccedH
 
   replicateM_ iters $ do
+    atomically $ modifyTVar' iterH (+1)
     stats <- trainAndValidOne m trainFile validFile
               (resetProcced proccedH)
-              (showStats startedAt timerH proccedH trainCount "Train" Nothing)
-              (showStats startedAt timerH proccedH testCount "Test")
+              (showProc trainCount "Train" Nothing)
+              (showProc testCount "Test")
     saveStatsToFile statFile stats
       { trainCount = trainCount
       , testCount  = testCount
@@ -131,8 +137,19 @@ prettyProc total proc = show (fromIntegral (floor (prec * 10000)) / 100) ++ "%"
   where prec = fromIntegral proc / fromIntegral total
 
 
-showStats :: Int64 -> TVar Int64 -> TVar Int -> Int -> String -> Maybe (TVar Int) -> Int64 -> Bool -> IO ()
-showStats startedAt timerH proccedH total name mValidH currentStartedAt force = do
+showStats
+  :: Int64 -> TVar Int64
+  -> TVar Int -> Int
+  -> TVar Int -> Int
+  -> TVar Int -> Int
+  -> String
+  -> Maybe (TVar Int) -> Int64 -> Bool -> IO ()
+showStats
+    startedAt timerH
+    iterH iters
+    sampleProcced totalSample
+    proccedH total
+    name mValidH currentStartedAt force = do
   unless force $ atomically $ modifyTVar' proccedH (+1)
   proc <- readTVarIO proccedH
   when (proc `mod` 1024 == 0 || force) $ do
@@ -140,21 +157,38 @@ showStats startedAt timerH proccedH total name mValidH currentStartedAt force = 
     now <- getEpochTime
     when ((now - timer) > 60 || force) $ do
       atomically $ writeTVar timerH now
-      putStrLn $ name ++ " iters " ++ show proc ++ "/" ++ show total ++ " " ++ prettyProc total proc
+      iter <- readTVarIO iterH
+
+      sampleCount <- readTVarIO sampleProcced
+
+      let iterLabel = " iter(" ++ minusStr iter iters ++ ") "
+          proccedSpent = now - currentStartedAt
+          totalSpent = calcSpent proccedSpent proc total
+
+          sampleProccedSpent = now - startedAt
+          sampleTotalSpent = calcSpent sampleProccedSpent sampleCount totalSample
+
+      putStrLn $ name ++ iterLabel ++ minusStr proc total ++ " " ++ prettyProc total proc
+
       case mValidH of
         Nothing    -> pure ()
         Just validH -> do
           valid   <- readTVarIO validH
           putStrLn $ name ++ " score " ++ prettyProc proc valid
 
-
-      let procced = now - currentStartedAt
-          totalSpent = floor (fromIntegral procced / fromIntegral proc * fromIntegral total)
-
-      putStrLn $ name ++ " Spent " ++ prettyTime procced
-      putStrLn $ name ++ " will be finished in " ++ prettyTime (totalSpent - procced)
+      putStrLn $ name ++ iterLabel ++ " Spent " ++ prettyTime proccedSpent
+      putStrLn $ name ++ iterLabel ++ " will be finished in " ++ prettyTime (totalSpent - proccedSpent)
+      putStrLn ""
       putStrLn $ "Total Spent " ++ prettyTime (now - startedAt)
+      putStrLn $ "TrainAndValid will be finished in " ++ prettyTime (sampleTotalSpent - sampleProccedSpent)
+      putStrLn ""
 
+minusStr :: Int -> Int -> String
+minusStr a b = show a ++ "/" ++ show b
+
+calcSpent :: Int64 -> Int -> Int -> Int64
+calcSpent procced proc total =
+  floor (fromIntegral procced / fromIntegral proc * fromIntegral total)
 
 loadLabels :: FilePath -> TVar [Text] -> IO ()
 loadLabels labelFile labelHandle =
