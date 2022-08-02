@@ -150,7 +150,9 @@ showStats
     sampleProcced totalSample
     proccedH total
     name mValidH currentStartedAt force = do
-  unless force $ atomically $ modifyTVar' proccedH (+1)
+  unless force $ atomically $ do
+    modifyTVar' proccedH (+1)
+    modifyTVar' sampleProcced (+1)
   proc <- readTVarIO proccedH
   when (proc `mod` 1024 == 0 || force) $ do
     timer <- readTVarIO timerH
