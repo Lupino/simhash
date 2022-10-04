@@ -28,11 +28,11 @@ newtype CommonOpts = CommonOpts
   deriving Show
 
 data Command
-  = Train FilePath FilePath Int
+  = Train FilePath FilePath FilePath Int
   | Test String
   | Infer PeriodicOpts Int
   | InferLearn PeriodicOpts
-  | TrainV2 FilePath FilePath Int
+  | TrainV2 FilePath FilePath FilePath Int
   | TestV2 String
   | InferV2 PeriodicOpts Int
   | InferLearnV2 PeriodicOpts
@@ -80,6 +80,11 @@ periodicOpts = PeriodicOpts
 trainParser :: Parser Command
 trainParser = Train
   <$> strOption
+    ( long "boot"
+    <> short 'b'
+    <> metavar "BOOT FILE"
+    <> value "")
+  <*> strOption
     ( long "data"
     <> short 'd'
     <> metavar "DATA FILE"
@@ -97,6 +102,11 @@ trainParser = Train
 trainV2Parser :: Parser Command
 trainV2Parser = TrainV2
   <$> strOption
+    ( long "boot"
+    <> short 'b'
+    <> metavar "BOOT FILE"
+    <> value "")
+  <*> strOption
     ( long "data"
     <> short 'd'
     <> metavar "DATA FILE"
@@ -201,52 +211,57 @@ parser = runA $ proc () -> do
   A version >>> A helper -< Args opts cmds
 
 
+asMaybe :: String -> Maybe String
+asMaybe "" = Nothing
+asMaybe s  = Just s
+
+
 program :: Args -> IO ()
-program (Args CommonOpts{..} (Train trainFile validFile iters)) = do
+program (Args CommonOpts{..} (Train bootFile trainFile validFile iters)) = do
   trainAndValid
-    (V1.loadModel optModelFile) trainFile validFile
+    (V1.loadModel (asMaybe bootFile) optModelFile) trainFile validFile
     (optModelFile ++ ".stats.json") iters
 program (Args CommonOpts{..} (Test s)) = do
   queue <- newQueue
-  void $ startRunner queue $ V1.loadModel optModelFile
+  void $ startRunner queue $ V1.loadModel Nothing optModelFile
   ret <- inferOne queue (fromString s)
   print ret
 program (Args CommonOpts{..} (Infer PeriodicOpts {..} runnerSize)) = do
   queues <- newQueues
   replicateM_ runnerSize $ do
     queue <-  newRQueue queues
-    void $ startRunner queue $ V1.loadModel optModelFile
+    void $ startRunner queue $ V1.loadModel Nothing optModelFile
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferTask queues
     work optWorkSize
 program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
   queue <- newQueue
-  (runner, _) <- startRunner queue $ V1.loadModel optModelFile
+  (runner, _) <- startRunner queue $ V1.loadModel Nothing optModelFile
   void $ startSaver runner
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferLearnTask queue
     work optWorkSize
-program (Args CommonOpts{..} (TrainV2 trainFile validFile iters)) = do
+program (Args CommonOpts{..} (TrainV2 bootFile trainFile validFile iters)) = do
 
   trainAndValid
-    (V2.loadModel optModelFile) trainFile validFile
+    (V2.loadModel (asMaybe bootFile) optModelFile) trainFile validFile
     (optModelFile ++ ".stats.json") iters
 program (Args CommonOpts{..} (TestV2 s)) = do
   queue <- newQueue
-  void $ startRunner queue $ V2.loadModel optModelFile
+  void $ startRunner queue $ V2.loadModel Nothing optModelFile
   ret <- inferOne queue (fromString s)
   print ret
 program (Args CommonOpts{..} (InferV2 PeriodicOpts {..} runnerSize)) = do
   queues <- newQueues
   replicateM_ runnerSize $ do
     queue <-  newRQueue queues
-    void $ startRunner queue $ V2.loadModel optModelFile
+    void $ startRunner queue $ V2.loadModel Nothing optModelFile
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferTask queues
     work optWorkSize
 program (Args CommonOpts{..} (InferLearnV2 PeriodicOpts {..})) = do
   queue <- newQueue
-  (runner, _) <- startRunner queue $ V2.loadModel optModelFile
+  (runner, _) <- startRunner queue $ V2.loadModel Nothing optModelFile
   void $ startSaver runner
   startWorkerM optHost $ do
     addFunc (fromString optFuncName) $ inferLearnTask queue

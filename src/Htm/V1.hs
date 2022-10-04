@@ -8,6 +8,7 @@ module Htm.V1
 
 import           Control.Monad    (unless, when)
 import           Data.ByteString  (ByteString)
+import           Data.Maybe       (fromMaybe)
 import           Data.Text        (Text)
 import           Htm.Model        (Model (..), loadLabels, saveLabels)
 import           Htm.SimHash      (SimHash, infer, learn, loadFromFile,
@@ -17,16 +18,16 @@ import           System.Directory (doesFileExist, renameFile)
 import           UnliftIO         (TVar, newTVarIO)
 
 
-loadModel :: FilePath -> IO Model
-loadModel modelFile = do
+loadModel :: Maybe FilePath -> FilePath -> IO Model
+loadModel mBootFile modelFile = do
   modelLabels <- newTVarIO []
   loadLabels labelFile modelLabels
   simhash <- new
 
-  exists0 <- doesFileExist modelFile
+  exists0 <- doesFileExist bootFile
   exists1 <- doesFileExist spFile
   unless (exists0 || exists1) $ setup simhash
-  when exists0 $ loadFromFile modelFile simhash
+  when exists0 $ loadFromFile bootFile simhash
   when exists1 $ loadFromFileV2 spFile clsrFile simhash
 
   pure Model
@@ -36,9 +37,11 @@ loadModel modelFile = do
     , ..
     }
 
-  where spFile = modelFile ++ ".sp"
-        clsrFile = modelFile ++ ".clsr"
-        labelFile = modelFile ++ ".labels"
+  where bootFile = fromMaybe modelFile mBootFile
+        spFile = bootFile ++ ".sp"
+        clsrFile = bootFile ++ ".clsr"
+        labelFile = bootFile ++ ".labels"
+
 
 
 saveModel ::FilePath -> SimHash -> TVar [Text] -> IO ()

@@ -9,6 +9,7 @@ module Htm.V2
 import           Data.Aeson                 (FromJSON, parseJSON, withObject,
                                              (.!=), (.:), (.:?))
 import           Data.ByteString            (ByteString)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Text                  (Text)
 import           Data.Yaml                  (decodeFileEither)
 import           Htm.Classifier             (Classifier)
@@ -119,10 +120,10 @@ getV2Opts fn = do
     Right opts -> pure opts
 
 
-loadModel :: FilePath -> IO Model
-loadModel modelFile = do
-  opts <- getV2Opts $ modelFile ++ ".opts.yml"
-  v2 <- loadV2 opts modelFile
+loadModel :: Maybe FilePath -> FilePath -> IO Model
+loadModel mBootFile modelFile = do
+  opts <- getV2Opts $ bootFile ++ ".opts.yml"
+  v2 <- loadV2 opts bootFile
 
   pure Model
     { modelSave = saveV2 v2
@@ -130,3 +131,5 @@ loadModel modelFile = do
     , modelInfer = infer_ v2
     , modelLabels = labelHandle v2
     }
+
+  where bootFile = fromMaybe modelFile mBootFile
