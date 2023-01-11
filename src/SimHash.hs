@@ -10,6 +10,7 @@ module SimHash
   ) where
 
 
+import           Control.Monad        (void)
 import           Data.Aeson           (encode)
 import           Data.ByteString.Lazy (toStrict)
 import           Data.Text            (Text)
@@ -46,7 +47,7 @@ inferTask queues = do
   msg <- workload
   queue <- readQueue queues
   ret <- inferOne queue msg
-  workDone_ $ toStrict $ encode ret
+  void $ workDone_ $ toStrict $ encode ret
 
 
 doInferLearnTask :: Text -> Text -> Queue -> JobM ()
@@ -58,7 +59,7 @@ doInferLearnTask "0" msg queue = do
     , itemMsg = encodeUtf8 msg
     }
   ret <- atomically $ takeTMVar iRet
-  workDone_ $ toStrict $ encode ret
+  void $ workDone_ $ toStrict $ encode ret
 
 doInferLearnTask "1" msg queue = do
   atomically $ writeTQueue queue Item
@@ -66,7 +67,7 @@ doInferLearnTask "1" msg queue = do
     , itemRet   = Nothing
     , itemMsg   = encodeUtf8 str
     }
-  workDone
+  void $ workDone
   where (label, str) = splitLabelAndMsg msg
 
 doInferLearnTask _ msg queue = do
@@ -77,7 +78,7 @@ doInferLearnTask _ msg queue = do
     , itemMsg   = encodeUtf8 str
     }
   ret <- atomically $ takeTMVar iRet
-  workDone_ $ toStrict $ encode ret
+  void $ workDone_ $ toStrict $ encode ret
   where (label, str) = splitLabelAndMsg msg
 
 

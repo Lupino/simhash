@@ -232,14 +232,14 @@ program (Args CommonOpts{..} (Infer PeriodicOpts {..} runnerSize)) = do
     queue <-  newRQueue queues
     void $ startRunner queue $ V1.loadModel Nothing optModelFile
   startWorkerM optHost $ do
-    addFunc (fromString optFuncName) $ inferTask queues
+    void $ addFunc (fromString optFuncName) $ inferTask queues
     work optWorkSize
 program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
   queue <- newQueue
   (runner, _) <- startRunner queue $ V1.loadModel Nothing optModelFile
   void $ startSaver runner
   startWorkerM optHost $ do
-    addFunc (fromString optFuncName) $ inferLearnTask queue
+    void $ addFunc (fromString optFuncName) $ inferLearnTask queue
     work optWorkSize
 program (Args CommonOpts{..} (TrainV2 bootFile trainFile validFile iters)) = do
 
@@ -257,14 +257,14 @@ program (Args CommonOpts{..} (InferV2 PeriodicOpts {..} runnerSize)) = do
     queue <-  newRQueue queues
     void $ startRunner queue $ V2.loadModel Nothing optModelFile
   startWorkerM optHost $ do
-    addFunc (fromString optFuncName) $ inferTask queues
+    void $ addFunc (fromString optFuncName) $ inferTask queues
     work optWorkSize
 program (Args CommonOpts{..} (InferLearnV2 PeriodicOpts {..})) = do
   queue <- newQueue
   (runner, _) <- startRunner queue $ V2.loadModel Nothing optModelFile
   void $ startSaver runner
   startWorkerM optHost $ do
-    addFunc (fromString optFuncName) $ inferLearnTask queue
+    void $ addFunc (fromString optFuncName) $ inferLearnTask queue
     work optWorkSize
 
 pinfo :: ParserInfo Args
