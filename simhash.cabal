@@ -16,8 +16,7 @@ extra-source-files:  README.md
 library
   if os(darwin)
     extra-libraries:     boost_filesystem
-  include-dirs:        cxx-src
-                       cxx-src/digestpp
+  include-dirs:        cxx-src/digestpp
                        cxx-src/eigen
                        cxx-src/cereal/include
                        cxx-src/htm.core/src
@@ -66,7 +65,6 @@ library
                        -- cxx-src/htm.core/src/htm/regions/DateEncoderRegion.cpp
                        -- cxx-src/htm.core/src/htm/regions/VectorFile.cpp
                        -- cxx-src/htm.core/external/common/murmurhash3/MurmurHash3.cpp
-                       cxx-src/SimHash.cpp
                        cxx-src/MyLog.cpp
   hs-source-dirs:      src
   exposed-modules:     SimHash
@@ -76,9 +74,7 @@ library
                      , Htm.Classifier
                      , Htm.Utils
                      , Htm.Stats
-                     , Htm.SimHash
                      , Htm.Model
-                     , Htm.V1
                      , Htm.V2
                      , Htm.Runner
   build-depends:       base >= 4.7 && < 5

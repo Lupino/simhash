@@ -12,7 +12,6 @@ import           Data.String                (fromString)
 import           Htm.Model                  (trainAndValid)
 import           Htm.Runner                 (inferOne, newQueue, startRunner,
                                              startSaver)
-import qualified Htm.V1                     as V1
 import qualified Htm.V2                     as V2
 import           Options.Applicative
 import           Options.Applicative.Arrows
@@ -28,11 +27,7 @@ newtype CommonOpts = CommonOpts
   deriving Show
 
 data Command
-  = Train FilePath FilePath FilePath Int
-  | Test String
-  | Infer PeriodicOpts Int
-  | InferLearn PeriodicOpts
-  | TrainV2 FilePath FilePath FilePath Int
+  = TrainV2 FilePath FilePath FilePath Int
   | TestV2 String
   | InferV2 PeriodicOpts Int
   | InferLearnV2 PeriodicOpts
@@ -77,28 +72,6 @@ periodicOpts = PeriodicOpts
     <> metavar "WORK SIZE"
     <> value 20)
 
-trainParser :: Parser Command
-trainParser = Train
-  <$> strOption
-    ( long "boot"
-    <> short 'b'
-    <> metavar "BOOT FILE"
-    <> value "")
-  <*> strOption
-    ( long "data"
-    <> short 'd'
-    <> metavar "DATA FILE"
-    <> value "data.txt")
-  <*> strOption
-    ( long "test"
-    <> short 't'
-    <> metavar "TEST FILE"
-    <> value "test.txt")
-  <*> option auto
-    ( long "iters"
-    <> metavar "ITERS"
-    <> value 1)
-
 trainV2Parser :: Parser Command
 trainV2Parser = TrainV2
   <$> strOption
@@ -121,14 +94,6 @@ trainV2Parser = TrainV2
     <> metavar "ITERS"
     <> value 1)
 
-testParser :: Parser Command
-testParser = Test
-  <$> strOption
-    ( long "str"
-    <> short 's'
-    <> metavar "STRING"
-    <> value "")
-
 testV2Parser :: Parser Command
 testV2Parser = TestV2
   <$> strOption
@@ -136,19 +101,6 @@ testV2Parser = TestV2
     <> short 's'
     <> metavar "STRING"
     <> value "")
-
-
-inferParser :: Parser Command
-inferParser = runA $ proc () -> do
-  opts <- asA periodicOpts -< ()
-  runnerSize <- (asA . option auto)
-            ( long "runner-size"
-           <> short 's'
-           <> metavar "RUNNER SIZE"
-           <> value 10 ) -< ()
-
-  returnA -< Infer opts runnerSize
-
 
 inferV2Parser :: Parser Command
 inferV2Parser = runA $ proc () -> do
@@ -160,13 +112,6 @@ inferV2Parser = runA $ proc () -> do
            <> value 10 ) -< ()
 
   returnA -< InferV2 opts runnerSize
-
-
-inferLearnParser :: Parser Command
-inferLearnParser = runA $ proc () -> do
-  opts <- asA periodicOpts -< ()
-  returnA -< InferLearn opts
-
 
 inferLearnV2Parser :: Parser Command
 inferLearnV2Parser = runA $ proc () -> do
@@ -183,29 +128,17 @@ parser :: Parser Args
 parser = runA $ proc () -> do
   opts <- asA commonOpts -< ()
   cmds <- (asA . hsubparser)
-            ( command "train"
-              (info trainParser
-                    (progDesc "Train simhash model"))
-           <> command "test"
-              (info testParser
-                    (progDesc "Test a string"))
-           <> command "infer"
-              (info inferParser
-                    (progDesc "Run infer task"))
-           <> command "infer-learn"
-              (info inferLearnParser
-                    (progDesc "Run infer learn task"))
-           <> command "v2-train"
+           (  command "v2-train"
               (info trainV2Parser
                     (progDesc "Train simhash model v2"))
            <> command "v2-test"
-              (info testParser
+              (info testV2Parser
                     (progDesc "Test a string v2"))
            <> command "v2-infer"
-              (info inferParser
+              (info inferV2Parser
                     (progDesc "Run infer task v2"))
            <> command "v2-infer-learn"
-              (info inferLearnParser
+              (info inferLearnV2Parser
                     (progDesc "Run infer learn task v2"))
             ) -< ()
   A version >>> A helper -< Args opts cmds
@@ -217,30 +150,6 @@ asMaybe s  = Just s
 
 
 program :: Args -> IO ()
-program (Args CommonOpts{..} (Train bootFile trainFile validFile iters)) = do
-  trainAndValid
-    (V1.loadModel (asMaybe bootFile) optModelFile) trainFile validFile
-    (optModelFile ++ ".stats.json") iters
-program (Args CommonOpts{..} (Test s)) = do
-  queue <- newQueue
-  void $ startRunner queue $ V1.loadModel Nothing optModelFile
-  ret <- inferOne queue (fromString s)
-  print ret
-program (Args CommonOpts{..} (Infer PeriodicOpts {..} runnerSize)) = do
-  queues <- newQueues
-  replicateM_ runnerSize $ do
-    queue <-  newRQueue queues
-    void $ startRunner queue $ V1.loadModel Nothing optModelFile
-  startWorkerM optHost $ do
-    void $ addFunc (fromString optFuncName) $ inferTask queues
-    work optWorkSize
-program (Args CommonOpts{..} (InferLearn PeriodicOpts {..})) = do
-  queue <- newQueue
-  (runner, _) <- startRunner queue $ V1.loadModel Nothing optModelFile
-  void $ startSaver runner
-  startWorkerM optHost $ do
-    void $ addFunc (fromString optFuncName) $ inferLearnTask queue
-    work optWorkSize
 program (Args CommonOpts{..} (TrainV2 bootFile trainFile validFile iters)) = do
 
   trainAndValid
