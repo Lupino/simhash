@@ -1,4 +1,4 @@
-{ compiler-nix-name ? "ghc923" }:
+{ compiler-nix-name ? "ghc947" }:
 let
   # Read in the Niv sources
   sources = import ./nix/sources.nix {};
@@ -10,8 +10,6 @@ let
   haskellNix = import sources.haskellNix { };
   # If haskellNix is not found run:
   #   niv add input-output-hk/haskell.nix -n haskellNix
-
-  # Import nixpkgs and pass the haskell.nix provided nixpkgsArgs
   pkgs = import
     # haskell.nix provides access to the nixpkgs pins which are used by our CI,
     # hence you will be more likely to get cache hits when using these.
@@ -26,10 +24,9 @@ in pkgs.haskell-nix.cabalProject {
       src = ./.;
       name = "simhash";
     };
-    index-state = "2022-07-30T00:00:00Z";
-    index-sha256 = "7527fad4a05f900f88c98a17dd78173a7e225c56ca7f8a7168af1d232d2c72ed";
-    plan-sha256 = if compiler-nix-name == "ghc923" then "1x3j427aj4hs5ivjl5wdrlidl7pxl3wv7gfy9afqdrfxhbb4cxzn" else null;
-    materialized = if compiler-nix-name == "ghc923" then ./nix/materialized else null;
+    index-state = "2023-10-15T00:00:00Z";
+    index-sha256 = "7f445a790f82e69f7453632d1d5eb993a9c6725fc4ef5d7e4a48fb89bd2c7dc6";
+    sha256map = import ./nix/sha256map.nix;
     # Specify the GHC version to use.
     compiler-nix-name = compiler-nix-name;
   }
