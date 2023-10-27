@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module Htm.SimHashDocumentEncoder
   ( CSimHashDocumentEncoder
@@ -17,42 +15,29 @@ import           Control.Exception     (mask_)
 import           Data.Aeson            (FromJSON, parseJSON, withObject, (.!=),
                                         (.:?))
 import           Data.ByteString       (ByteString)
+import qualified Data.ByteString.Char8  as B (useAsCStringLen)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Utils (fromBool)
 import           Foreign.Ptr           (FunPtr, Ptr)
+import           Foreign.C.Types
+import           Foreign.C.String      (CString)
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
-import qualified Language.C.Inline.Cpp as C
 
+#include "sdr.h"
 
 data CSimHashDocumentEncoder
-C.context (C.cppCtx <> C.bsCtx <> C.cppTypePairs
-  [ ("htm::SimHashDocumentEncoder", [t|CSimHashDocumentEncoder|])
-  , ("htm::SDR", [t|CSdr|])
-  ])
-C.include "<htm/encoders/SimHashDocumentEncoder.hpp>"
 
-newCSimHashDocumentEncoder :: C.CInt -> C.CDouble -> C.CBool -> IO (Ptr CSimHashDocumentEncoder)
-newCSimHashDocumentEncoder size sparsity tokenSimilarity =
-  [C.block| htm::SimHashDocumentEncoder* {
-    htm::SimHashDocumentEncoderParameters params;
-    params.size = $(int size);
-    params.sparsity = $(double sparsity);
-    params.tokenSimilarity = $(bool tokenSimilarity);
-    return new htm::SimHashDocumentEncoder(params);
-  }|]
+foreign import ccall "newCSimHashDocumentEncoder" newCSimHashDocumentEncoder :: CInt -> CDouble -> CBool -> IO (Ptr CSimHashDocumentEncoder)
+foreign import ccall "&deleteCSimHashDocumentEncoder" deleteCSimHashDocumentEncoder :: FunPtr (Ptr CSimHashDocumentEncoder -> IO ())
 
-deleteCSimHashDocumentEncoder :: FunPtr (Ptr CSimHashDocumentEncoder -> IO ())
-deleteCSimHashDocumentEncoder =
-  [C.funPtr|void deleteSimHashDocumentEncoder(htm::SimHashDocumentEncoder* sdr){delete sdr;}|]
+foreign import ccall "cSimHashDocumentEncoderEncode" _cSimHashDocumentEncoderEncode
+  :: CString -> CInt -> Ptr CSdr -> Ptr CSimHashDocumentEncoder -> IO ()
 
 cSimHashDocumentEncoderEncode :: ByteString -> Ptr CSdr -> Ptr CSimHashDocumentEncoder -> IO ()
 cSimHashDocumentEncoderEncode str sdrPtr ptr =
-  [C.block| void {
-    std::string str($bs-ptr:str);
-    str.resize($bs-len:str);
-    $(htm::SimHashDocumentEncoder* ptr)->encode(str, *$(htm::SDR* sdrPtr));
-  }|]
+  B.useAsCStringLen str $ \(cstr, len) ->
+    _cSimHashDocumentEncoderEncode cstr (fromIntegral len) sdrPtr ptr
 
 newtype SimHashDocumentEncoder = SimHashDocumentEncoder (ForeignPtr CSimHashDocumentEncoder)
 

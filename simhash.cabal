@@ -14,13 +14,17 @@ build-type:          Simple
 extra-source-files:  README.md
 
 library
+  cxx-options: -std=c++11 -Wall
   if os(darwin)
-    extra-libraries:     boost_filesystem
+    extra-libraries:     boost_filesystem c++
+  else
+    extra-libraries:   stdc++
   include-dirs:        cxx-src/digestpp
                        cxx-src/eigen
                        cxx-src/cereal/include
                        cxx-src/htm.core/src
                        cxx-src/htm.core/external/common
+                       cxx-src
   cxx-sources:         cxx-src/htm.core/src/htm/types/Sdr.cpp
                        -- cxx-src/htm.core/src/htm/algorithms/AnomalyLikelihood.cpp
                        cxx-src/htm.core/src/htm/algorithms/Connections.cpp
@@ -66,6 +70,7 @@ library
                        -- cxx-src/htm.core/src/htm/regions/VectorFile.cpp
                        -- cxx-src/htm.core/external/common/murmurhash3/MurmurHash3.cpp
                        cxx-src/MyLog.cpp
+                       cxx-src/sdr.cpp
   hs-source-dirs:      src
   exposed-modules:     SimHash
                      , Htm.Sdr
@@ -84,8 +89,8 @@ library
                      , aeson
                      , text
                      , directory
-                     , inline-c
-                     , inline-c-cpp
+                     -- , inline-c
+                     -- , inline-c-cpp
                      , yaml
 
                      , mtl

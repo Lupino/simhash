@@ -1,6 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module Htm.Sdr
   ( CSdr
@@ -13,22 +11,17 @@ module Htm.Sdr
 import           Control.Exception     (mask_)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
+
 import           Foreign.Ptr           (FunPtr, Ptr)
-import qualified Language.C.Inline.Cpp as C
+import           Foreign.C.Types
+
+#include "sdr.h"
 
 data CSdr
-C.context (C.cppCtx <> C.bsCtx <> C.cppTypePairs [("htm::SDR", [t|CSdr|])])
-C.include "<htm/types/Sdr.hpp>"
 
-newCSdr :: C.CInt -> IO (Ptr CSdr)
-newCSdr dim =
-  [C.block| htm::SDR* {
-    return new htm::SDR({(htm::UInt)$(int dim)});
-  }|]
+foreign import ccall "newCSdr" newCSdr :: CInt -> IO (Ptr CSdr)
 
-deleteCSdr :: FunPtr (Ptr CSdr -> IO ())
-deleteCSdr =
-  [C.funPtr|void deleteSdr(htm::SDR* sdr){delete sdr;}|]
+foreign import ccall "&deleteCSdr" deleteCSdr :: FunPtr (Ptr CSdr -> IO ())
 
 newtype Sdr = Sdr (ForeignPtr CSdr)
 
