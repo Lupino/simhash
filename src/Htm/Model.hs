@@ -5,26 +5,20 @@ module Htm.Model
   ( Model (..)
   , infer
   , trainAndValid
-
-  , loadLabels
-  , saveLabels
   ) where
 
 
-import           Control.Monad    (replicateM_, unless, when)
-import           Data.ByteString  (ByteString)
-import           Data.Int         (Int64)
-import           Data.List        (sortBy)
-import           Data.Text        (Text)
-import qualified Data.Text        as T (intercalate, split, strip)
-import qualified Data.Text.IO     as T (readFile, writeFile)
-import           Htm.Stats        (Stats (..), saveStatsToFile)
-import           Htm.Utils        (argmax, getLabelIdx, prettyTime,
-                                   readLineAndDo, whenExists)
-import           Metro.Utils      (getEpochTime)
-import           System.Directory (renameFile)
-import           UnliftIO         (TVar, atomically, modifyTVar', newTVarIO,
-                                   readTVarIO, writeTVar)
+import           Control.Monad   (replicateM_, unless, when)
+import           Data.ByteString (ByteString)
+import           Data.Int        (Int64)
+import           Data.List       (sortBy)
+import           Data.Text       (Text)
+import           Htm.Stats       (Stats (..), saveStatsToFile)
+import           Htm.Utils       (argmax, getLabelIdx, prettyTime,
+                                  readLineAndDo)
+import           Metro.Utils     (getEpochTime)
+import           UnliftIO        (TVar, atomically, modifyTVar', newTVarIO,
+                                  readTVarIO, writeTVar)
 
 data Model = Model
   { modelLabels :: TVar [Text]
@@ -192,18 +186,3 @@ minusStr a b = show a ++ "/" ++ show b
 calcSpent :: Int64 -> Int -> Int -> Int64
 calcSpent procced proc total =
   floor (fromIntegral procced / fromIntegral proc * fromIntegral total)
-
-loadLabels :: FilePath -> TVar [Text] -> IO ()
-loadLabels labelFile labelHandle =
-  whenExists labelFile $ do
-    labels <- T.split (=='\n') . T.strip <$> T.readFile labelFile
-    atomically $ writeTVar labelHandle labels
-
-
-saveLabels :: FilePath -> TVar [Text] -> IO ()
-saveLabels labelFile labelHandle = do
-  labels <- readTVarIO labelHandle
-  T.writeFile labelFile1 $ T.intercalate "\n" labels
-  renameFile labelFile1 labelFile
-
-  where labelFile1 = labelFile ++ ".1"

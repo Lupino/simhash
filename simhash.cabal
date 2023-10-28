@@ -77,6 +77,7 @@ library
                      , Htm.SimHashDocumentEncoder
                      , Htm.SpatialPooler
                      , Htm.Classifier
+                     , Htm.Saver
                      , Htm.Utils
                      , Htm.Stats
                      , Htm.Model

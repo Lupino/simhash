@@ -1,6 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 module Htm.SpatialPooler
   ( CSpatialPooler
@@ -8,9 +6,6 @@ module Htm.SpatialPooler
   , new
   , withSpatialPooler
   , compute
-
-  , saveToFile
-  , loadFromFile
   ) where
 
 
@@ -20,7 +15,6 @@ import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
 import           Foreign.Marshal.Utils (fromBool)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Foreign.C.Types
-import           Foreign.C.String
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
 
 #include "sdr.h"
@@ -31,8 +25,6 @@ foreign import ccall "newCSpatialPooler" newCSpatialPooler :: CInt -> CInt -> IO
 foreign import ccall "&deleteCSpatialPooler" deleteCSpatialPooler :: FunPtr (Ptr CSpatialPooler -> IO ())
 foreign import ccall "cSpatialPoolerCompute" cSpatialPoolerCompute
   :: Ptr CSdr -> CBool -> Ptr CSdr -> Ptr CSpatialPooler -> IO ()
-foreign import ccall "cSpatialPoolerSaveToFile" cSpatialPoolerSaveToFile :: CString -> CInt -> Ptr CSpatialPooler -> IO ()
-foreign import ccall "cSpatialPoolerLoadFromFile" cSpatialPoolerLoadFromFile :: CString -> CInt -> Ptr CSpatialPooler -> IO ()
 
 
 newtype SpatialPooler = SpatialPooler (ForeignPtr CSpatialPooler)
@@ -51,13 +43,3 @@ compute input learn active sp =
     withSdr active $ \activePtr ->
       withSpatialPooler sp $
         cSpatialPoolerCompute inputPtr (fromBool learn) activePtr
-
-saveToFile :: FilePath -> SpatialPooler -> IO ()
-saveToFile fn clsr =
-  withCStringLen fn $ \(bsFn, len) ->
-  withSpatialPooler clsr $ cSpatialPoolerSaveToFile bsFn (fromIntegral len)
-
-loadFromFile :: FilePath -> SpatialPooler -> IO ()
-loadFromFile fn clsr =
-  withCStringLen fn $ \(bsFn, len) ->
-  withSpatialPooler clsr $ cSpatialPoolerLoadFromFile bsFn (fromIntegral len)

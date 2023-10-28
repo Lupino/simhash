@@ -25,13 +25,8 @@ extern void deleteCSpatialPooler(void * pooler);
 extern void cSpatialPoolerCompute(void * sdr, bool learn, void * active, void * pooler);
 
 
-extern void cClassifierSaveToFile(char * bs, int len, void * classifier);
-extern void cClassifierLoadFromFile(char * bs, int len, void * classifier);
-
-
-extern void cSpatialPoolerSaveToFile(char * bs, int len, void * pooler);
-extern void cSpatialPoolerLoadFromFile(char * bs, int len, void * pooler);
-
+extern void saveToFile(char * bs, int len, void * pooler, void * classifier, char *labels, int label_len);
+extern void loadFromFile(char * bs, int len, void * pooler, void * classifier, char *labels, int *label_len);
 
 #ifdef __cplusplus
 }

@@ -7,9 +7,6 @@ module Htm.Classifier
   , withClassifier
   , learn
   , infer
-
-  , saveToFile
-  , loadFromFile
   ) where
 
 
@@ -19,7 +16,6 @@ import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
 import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Foreign.C.Types
-import           Foreign.C.String
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
 
 #include "sdr.h"
@@ -30,8 +26,6 @@ foreign import ccall "newCClassifier" newCClassifier :: IO (Ptr CClassifier)
 foreign import ccall "&deleteCClassifier" deleteCClassifier :: FunPtr (Ptr CClassifier -> IO ())
 foreign import ccall "cClassifierLearn" cClassifierLearn :: Ptr CSdr -> CInt -> Ptr CClassifier -> IO ()
 foreign import ccall "cClassifierInfer" cClassifierInfer :: Ptr CSdr -> Ptr CDouble -> Ptr CClassifier -> IO ()
-foreign import ccall "cClassifierSaveToFile" cClassifierSaveToFile :: CString -> CInt -> Ptr CClassifier -> IO ()
-foreign import ccall "cClassifierLoadFromFile" cClassifierLoadFromFile :: CString -> CInt -> Ptr CClassifier -> IO ()
 
 newtype Classifier = Classifier (ForeignPtr CClassifier)
 
@@ -55,13 +49,3 @@ infer sdr size clsr =
     allocaArray size $ \out -> do
       withClassifier clsr $ cClassifierInfer sdrPtr out
       map realToFrac <$> peekArray size out
-
-saveToFile :: FilePath -> Classifier -> IO ()
-saveToFile fn clsr =
-  withCStringLen fn $ \(bsFn, len) ->
-  withClassifier clsr $ cClassifierSaveToFile bsFn (fromIntegral len)
-
-loadFromFile :: FilePath -> Classifier -> IO ()
-loadFromFile fn clsr =
-  withCStringLen fn $ \(bsFn, len) ->
-  withClassifier clsr $ cClassifierLoadFromFile bsFn (fromIntegral len)

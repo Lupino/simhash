@@ -3,6 +3,7 @@
 #include <htm/algorithms/SDRClassifier.hpp>
 #include <htm/encoders/SimHashDocumentEncoder.hpp>
 #include <htm/algorithms/SpatialPooler.hpp>
+#include <htm/types/Serializable.hpp>
 
 extern void * newCSdr(int dim) {
    return new htm::SDR({(htm::UInt)dim});
@@ -68,30 +69,62 @@ extern void cSpatialPoolerCompute(void * sdr, bool learn, void * active, void * 
     _pooler->compute(*(const htm::SDR *)sdr, learn, *(htm::SDR*) active);
 }
 
-extern void cClassifierSaveToFile(char * bs, int len, void * classifier) {
-    htm::Classifier * _classifier = (htm::Classifier *)classifier;
-    std::string fn(bs);
-    fn.resize(len);
-    _classifier -> saveToFile(fn);
-}
+namespace saver {
 
-extern void cClassifierLoadFromFile(char * bs, int len, void * classifier) {
-    htm::Classifier * _classifier = (htm::Classifier *)classifier;
-    std::string fn(bs);
-    fn.resize(len);
-    _classifier -> loadFromFile(fn);
-}
+using namespace std;
+using namespace htm;
 
-extern void cSpatialPoolerSaveToFile(char * bs, int len, void * pooler) {
+class Saver : public Serializable {
+  private:
+    SpatialPooler * sp;
+    Classifier * clsr;
+    string * labels;
+
+  public:
+    Saver(SpatialPooler * sp0, Classifier * clsr0, string *labels0) {
+      sp = sp0;
+      clsr = clsr0;
+      labels = labels0;
+    }
+    CerealAdapter;
+    template<class Archive>
+    void save_ar(Archive & ar) const {
+      ar(cereal::make_nvp("sp", * sp));
+      ar(cereal::make_nvp("clsr", * clsr));
+      ar(cereal::make_nvp("labels", * labels));
+    }
+
+    template<class Archive>
+    void load_ar(Archive & ar) {
+      ar(cereal::make_nvp("sp", * sp));
+      ar(cereal::make_nvp("clsr", * clsr));
+      ar(cereal::make_nvp("labels", * labels));
+    }
+
+};  // End class Saver
+
+} // -ns
+
+extern void saveToFile(char * bs, int len, void * pooler, void * classifier, char *labels, int label_len) {
     htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
+    htm::Classifier * _classifier = (htm::Classifier *)classifier;
+    std::string str_labels(labels);
+    str_labels.resize(label_len);
+    saver::Saver saver(_pooler, _classifier, &str_labels);
     std::string fn(bs);
     fn.resize(len);
-    _pooler -> saveToFile(fn);
+    saver.saveToFile(fn);
 }
 
-extern void cSpatialPoolerLoadFromFile(char * bs, int len, void * pooler) {
+extern void loadFromFile(char * bs, int len, void * pooler, void * classifier, char *labels, int* label_len) {
     htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
+    htm::Classifier * _classifier = (htm::Classifier *)classifier;
+    std::string str_labels;
+    saver::Saver saver(_pooler, _classifier, &str_labels);
     std::string fn(bs);
     fn.resize(len);
-    _pooler -> loadFromFile(fn);
+    saver.loadFromFile(fn);
+
+    memcpy(labels, str_labels.c_str(), str_labels.size());
+    *label_len = str_labels.size();
 }

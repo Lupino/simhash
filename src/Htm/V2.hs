@@ -14,7 +14,8 @@ import           Data.Text                  (Text)
 import           Data.Yaml                  (decodeFileEither)
 import           Htm.Classifier             (Classifier)
 import qualified Htm.Classifier             as Clsr
-import           Htm.Model                  (Model (..), loadLabels, saveLabels)
+import           Htm.Model                  (Model (..))
+import           Htm.Saver                  (loadFromFile, saveToFile)
 import           Htm.Sdr                    (Sdr)
 import qualified Htm.Sdr                    as Sdr
 import           Htm.SimHashDocumentEncoder (SimHashDocumentEncoder,
@@ -70,32 +71,20 @@ loadV2 V2Opts {..} modelFile = do
   modelEncSdr <- Sdr.new (optSize optEncoderOpts)
   modelSpSdr <- Sdr.new optColumnSize
 
-  whenExists spFile $ SP.loadFromFile spFile modelSp
-  whenExists clsrFile $ Clsr.loadFromFile clsrFile modelClsr
-  loadLabels labelFile labelHandle
+  whenExists htmFile $ loadFromFile htmFile modelSp modelClsr labelHandle
 
   pure V2 {..}
 
-  where spFile = modelFile ++ ".sp"
-        clsrFile = modelFile ++ ".clsr"
-        labelFile = modelFile ++ ".labels"
+  where htmFile = modelFile
 
 
 saveV2 :: V2 -> IO ()
 saveV2 V2 {..} = do
-  SP.saveToFile spFile1 modelSp
-  Clsr.saveToFile clsrFile1 modelClsr
-  saveLabels labelFile labelHandle
+  saveToFile htmFile1 modelSp modelClsr labelHandle
+  renameFile htmFile1 htmFile
 
-  renameFile spFile1 spFile
-  renameFile clsrFile1 clsrFile
-
-  where spFile = modelFile ++ ".sp"
-        clsrFile = modelFile ++ ".clsr"
-        labelFile = modelFile ++ ".labels"
-
-        spFile1 = modelFile ++ ".sp.1"
-        clsrFile1 = modelFile ++ ".clsr.1"
+  where htmFile = modelFile
+        htmFile1 = modelFile ++ ".1"
 
 
 learn :: V2 -> ByteString -> Text -> IO ()
