@@ -18,7 +18,7 @@ extern void cClassifierInfer(void * sdr, double* ret, void * classifier);
 
 extern void * newCSimHashDocumentEncoder(int size, double sparsity, bool tokenSimilarity);
 extern void deleteCSimHashDocumentEncoder(void * encoder);
-extern void cSimHashDocumentEncoderLearn(char * bs, int len, void * sdr, void * encoder);
+extern void cSimHashDocumentEncoderEncode(char * bs, int len, void * sdr, void * encoder);
 
 extern void * newCSpatialPooler(int inputDim, int columnDim);
 extern void deleteCSpatialPooler(void * pooler);

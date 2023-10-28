@@ -47,7 +47,7 @@ extern void deleteCSimHashDocumentEncoder(void * encoder) {
     delete _encoder;
 }
 
-extern void cSimHashDocumentEncoderLearn(char * bs, int len, void * sdr, void * encoder) {
+extern void cSimHashDocumentEncoderEncode(char * bs, int len, void * sdr, void * encoder) {
     htm::SimHashDocumentEncoder * _encoder = (htm::SimHashDocumentEncoder *)encoder;
     std::string str(bs);
     str.resize(len);

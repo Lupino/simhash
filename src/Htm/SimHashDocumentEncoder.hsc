@@ -31,13 +31,8 @@ data CSimHashDocumentEncoder
 foreign import ccall "newCSimHashDocumentEncoder" newCSimHashDocumentEncoder :: CInt -> CDouble -> CBool -> IO (Ptr CSimHashDocumentEncoder)
 foreign import ccall "&deleteCSimHashDocumentEncoder" deleteCSimHashDocumentEncoder :: FunPtr (Ptr CSimHashDocumentEncoder -> IO ())
 
-foreign import ccall "cSimHashDocumentEncoderEncode" _cSimHashDocumentEncoderEncode
+foreign import ccall "cSimHashDocumentEncoderEncode" cSimHashDocumentEncoderEncode
   :: CString -> CInt -> Ptr CSdr -> Ptr CSimHashDocumentEncoder -> IO ()
-
-cSimHashDocumentEncoderEncode :: ByteString -> Ptr CSdr -> Ptr CSimHashDocumentEncoder -> IO ()
-cSimHashDocumentEncoderEncode str sdrPtr ptr =
-  B.useAsCStringLen str $ \(cstr, len) ->
-    _cSimHashDocumentEncoderEncode cstr (fromIntegral len) sdrPtr ptr
 
 newtype SimHashDocumentEncoder = SimHashDocumentEncoder (ForeignPtr CSimHashDocumentEncoder)
 
@@ -65,6 +60,7 @@ withSimHashDocumentEncoder (SimHashDocumentEncoder fptr) = withForeignPtr fptr
 
 encode :: ByteString -> Sdr -> SimHashDocumentEncoder -> IO ()
 encode str sdr encoder =
+  B.useAsCStringLen str $ \(cstr, len) ->
   withSdr sdr $ \sdrPtr ->
     withSimHashDocumentEncoder encoder $
-      cSimHashDocumentEncoderEncode str sdrPtr
+      cSimHashDocumentEncoderEncode cstr (fromIntegral len) sdrPtr
