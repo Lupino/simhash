@@ -70,8 +70,8 @@ loadV2 V2Opts {..} modelFile = do
   modelEncSdr <- Sdr.new (optSize optEncoderOpts)
   modelSpSdr <- Sdr.new optColumnSize
 
-  -- whenExists spFile $ SP.loadFromFile spFile modelSp
-  -- whenExists clsrFile $ Clsr.loadFromFile clsrFile modelClsr
+  whenExists spFile $ SP.loadFromFile spFile modelSp
+  whenExists clsrFile $ Clsr.loadFromFile clsrFile modelClsr
   loadLabels labelFile labelHandle
 
   pure V2 {..}
@@ -83,8 +83,8 @@ loadV2 V2Opts {..} modelFile = do
 
 saveV2 :: V2 -> IO ()
 saveV2 V2 {..} = do
-  -- SP.saveToFile spFile1 modelSp
-  -- Clsr.saveToFile clsrFile1 modelClsr
+  SP.saveToFile spFile1 modelSp
+  Clsr.saveToFile clsrFile1 modelClsr
   saveLabels labelFile labelHandle
 
   renameFile spFile1 spFile

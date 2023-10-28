@@ -24,6 +24,15 @@ extern void * newCSpatialPooler(int inputDim, int columnDim);
 extern void deleteCSpatialPooler(void * pooler);
 extern void cSpatialPoolerCompute(void * sdr, bool learn, void * active, void * pooler);
 
+
+extern void cClassifierSaveToFile(char * bs, int len, void * classifier);
+extern void cClassifierLoadFromFile(char * bs, int len, void * classifier);
+
+
+extern void cSpatialPoolerSaveToFile(char * bs, int len, void * pooler);
+extern void cSpatialPoolerLoadFromFile(char * bs, int len, void * pooler);
+
+
 #ifdef __cplusplus
 }
 #endif

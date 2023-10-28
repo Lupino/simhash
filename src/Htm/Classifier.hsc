@@ -8,51 +8,30 @@ module Htm.Classifier
   , learn
   , infer
 
-  -- , saveToFile
-  -- , loadFromFile
+  , saveToFile
+  , loadFromFile
   ) where
 
 
 import           Control.Exception     (mask_)
--- import           Data.ByteString       (ByteString)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Foreign.C.Types
+import           Foreign.C.String
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
--- import           Htm.Utils             (toBS)
--- import qualified Language.C.Inline.Cpp as C
+
 #include "sdr.h"
 
 data CClassifier
--- C.context (C.cppCtx <> C.bsCtx <> C.cppTypePairs
---   [ ("htm::Classifier", [t|CClassifier|])
---   , ("htm::SDR", [t|CSdr|])
---   ])
--- C.include "<htm/algorithms/SDRClassifier.hpp>"
 
 foreign import ccall "newCClassifier" newCClassifier :: IO (Ptr CClassifier)
 foreign import ccall "&deleteCClassifier" deleteCClassifier :: FunPtr (Ptr CClassifier -> IO ())
-foreign import ccall "learn" cClassifierLearn :: Ptr CSdr -> CInt -> Ptr CClassifier -> IO ()
-foreign import ccall "infer" cClassifierInfer :: Ptr CSdr -> Ptr CDouble -> Ptr CClassifier -> IO ()
-
--- cClassifierSaveToFile :: ByteString -> Ptr CClassifier -> IO ()
--- cClassifierSaveToFile fn ptr = do
---   [C.block| void {
---     std::string fn($bs-ptr:fn);
---     fn.resize($bs-len:fn);
---     $(htm::Classifier* ptr)->saveToFile(fn);
---   }|]
---
---
--- cClassifierLoadFromFile :: ByteString -> Ptr CClassifier -> IO ()
--- cClassifierLoadFromFile fn ptr = do
---   [C.block| void {
---     std::string fn($bs-ptr:fn);
---     fn.resize($bs-len:fn);
---     $(htm::Classifier* ptr)->loadFromFile(fn);
---   }|]
+foreign import ccall "cClassifierLearn" cClassifierLearn :: Ptr CSdr -> CInt -> Ptr CClassifier -> IO ()
+foreign import ccall "cClassifierInfer" cClassifierInfer :: Ptr CSdr -> Ptr CDouble -> Ptr CClassifier -> IO ()
+foreign import ccall "cClassifierSaveToFile" cClassifierSaveToFile :: CString -> CInt -> Ptr CClassifier -> IO ()
+foreign import ccall "cClassifierLoadFromFile" cClassifierLoadFromFile :: CString -> CInt -> Ptr CClassifier -> IO ()
 
 newtype Classifier = Classifier (ForeignPtr CClassifier)
 
@@ -77,12 +56,12 @@ infer sdr size clsr =
       withClassifier clsr $ cClassifierInfer sdrPtr out
       map realToFrac <$> peekArray size out
 
+saveToFile :: FilePath -> Classifier -> IO ()
+saveToFile fn clsr =
+  withCStringLen fn $ \(bsFn, len) ->
+  withClassifier clsr $ cClassifierSaveToFile bsFn (fromIntegral len)
 
--- saveToFile :: FilePath -> Classifier -> IO ()
--- saveToFile fn clsr = withClassifier clsr $ cClassifierSaveToFile bsFn
---   where bsFn = toBS fn
---
---
--- loadFromFile :: FilePath -> Classifier -> IO ()
--- loadFromFile fn clsr = withClassifier clsr $ cClassifierLoadFromFile bsFn
---   where bsFn = toBS fn
+loadFromFile :: FilePath -> Classifier -> IO ()
+loadFromFile fn clsr =
+  withCStringLen fn $ \(bsFn, len) ->
+  withClassifier clsr $ cClassifierLoadFromFile bsFn (fromIntegral len)

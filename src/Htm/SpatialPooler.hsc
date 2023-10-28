@@ -9,20 +9,19 @@ module Htm.SpatialPooler
   , withSpatialPooler
   , compute
 
-  -- , saveToFile
-  -- , loadFromFile
+  , saveToFile
+  , loadFromFile
   ) where
 
 
 import           Control.Exception     (mask_)
--- import           Data.ByteString       (ByteString)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Utils (fromBool)
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Foreign.C.Types
+import           Foreign.C.String
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
--- import           Htm.Utils             (toBS)
 
 #include "sdr.h"
 
@@ -32,23 +31,9 @@ foreign import ccall "newCSpatialPooler" newCSpatialPooler :: CInt -> CInt -> IO
 foreign import ccall "&deleteCSpatialPooler" deleteCSpatialPooler :: FunPtr (Ptr CSpatialPooler -> IO ())
 foreign import ccall "cSpatialPoolerCompute" cSpatialPoolerCompute
   :: Ptr CSdr -> CBool -> Ptr CSdr -> Ptr CSpatialPooler -> IO ()
+foreign import ccall "cSpatialPoolerSaveToFile" cSpatialPoolerSaveToFile :: CString -> CInt -> Ptr CSpatialPooler -> IO ()
+foreign import ccall "cSpatialPoolerLoadFromFile" cSpatialPoolerLoadFromFile :: CString -> CInt -> Ptr CSpatialPooler -> IO ()
 
--- cSpatialPoolerSaveToFile :: ByteString -> Ptr CSpatialPooler -> IO ()
--- cSpatialPoolerSaveToFile fn ptr = do
---   [C.block| void {
---     std::string fn($bs-ptr:fn);
---     fn.resize($bs-len:fn);
---     $(htm::SpatialPooler* ptr)->saveToFile(fn);
---   }|]
---
---
--- cSpatialPoolerLoadFromFile :: ByteString -> Ptr CSpatialPooler -> IO ()
--- cSpatialPoolerLoadFromFile fn ptr = do
---   [C.block| void {
---     std::string fn($bs-ptr:fn);
---     fn.resize($bs-len:fn);
---     $(htm::SpatialPooler* ptr)->loadFromFile(fn);
---   }|]
 
 newtype SpatialPooler = SpatialPooler (ForeignPtr CSpatialPooler)
 
@@ -67,12 +52,12 @@ compute input learn active sp =
       withSpatialPooler sp $
         cSpatialPoolerCompute inputPtr (fromBool learn) activePtr
 
+saveToFile :: FilePath -> SpatialPooler -> IO ()
+saveToFile fn clsr =
+  withCStringLen fn $ \(bsFn, len) ->
+  withSpatialPooler clsr $ cSpatialPoolerSaveToFile bsFn (fromIntegral len)
 
--- saveToFile :: FilePath -> SpatialPooler -> IO ()
--- saveToFile fn sp = withSpatialPooler sp $ cSpatialPoolerSaveToFile bsFn
---   where bsFn = toBS fn
---
---
--- loadFromFile :: FilePath -> SpatialPooler -> IO ()
--- loadFromFile fn sp = withSpatialPooler sp $ cSpatialPoolerLoadFromFile bsFn
---   where bsFn = toBS fn
+loadFromFile :: FilePath -> SpatialPooler -> IO ()
+loadFromFile fn clsr =
+  withCStringLen fn $ \(bsFn, len) ->
+  withSpatialPooler clsr $ cSpatialPoolerLoadFromFile bsFn (fromIntegral len)
