@@ -14,7 +14,6 @@ build-type:          Simple
 extra-source-files:  README.md
 
 library
-  cxx-options: -std=c++11 -Wall
   if os(darwin)
     extra-libraries:     boost_filesystem c++
   else
