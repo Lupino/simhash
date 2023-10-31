@@ -23,7 +23,17 @@ extern void simHashDocumentEncoder_initialize(int size, double sparsity, bool to
 extern void simHashDocumentEncoder_encode(char * bs, int len, void * sdr, void * encoder);
 
 extern void * new_spatialPooler();
-extern void spatialPooler_initialize(int inputDim, int columnDim, void * pooler);
+extern void spatialPooler_initialize(
+    int * inputDimensions_ptr, int input_len,
+    int * columnDimensions_ptr, int column_len,
+    int potentialRadius, float potentialPct,
+    bool globalInhibition, float localAreaDensity,
+    int numActiveColumnsPerInhArea, int stimulusThreshold,
+    float synPermInactiveDec, float synPermActiveInc,
+    float synPermConnected, float minPctOverlapDutyCycles,
+    int dutyCyclePeriod, float boostStrength,
+    int seed, int spVerbosity, bool wrapAround,
+    void * pooler);
 extern void delete_spatialPooler(void * pooler);
 extern void spatialPooler_compute(void * sdr, bool learn, void * active, void * pooler);
 

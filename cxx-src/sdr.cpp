@@ -82,9 +82,40 @@ extern void * new_spatialPooler() {
     return new htm::SpatialPooler();
 }
 
-extern void spatialPooler_initialize(int inputDim, int columnDim, void * pooler) {
+extern void spatialPooler_initialize(
+    int * inputDimensions_ptr, int input_len,
+    int * columnDimensions_ptr, int column_len,
+    int potentialRadius, float potentialPct,
+    bool globalInhibition, float localAreaDensity,
+    int numActiveColumnsPerInhArea, int stimulusThreshold,
+    float synPermInactiveDec, float synPermActiveInc,
+    float synPermConnected, float minPctOverlapDutyCycles,
+    int dutyCyclePeriod, float boostStrength,
+    int seed, int spVerbosity, bool wrapAround,
+    void * pooler) {
+    std::vector<htm::UInt> inputDimensions;
+    for (int i = 0; i < input_len; i ++) {
+      inputDimensions.push_back((htm::UInt) inputDimensions_ptr[i]);
+    }
+    std::vector<htm::UInt> columnDimensions;
+    for (int i = 0; i < column_len; i ++) {
+      columnDimensions.push_back((htm::UInt) columnDimensions_ptr[i]);
+    }
     htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
-    _pooler->initialize({(htm::UInt)inputDim}, {(htm::UInt)columnDim});
+    _pooler->initialize(
+        inputDimensions,
+        columnDimensions,
+        potentialRadius,
+        potentialPct,
+        globalInhibition,
+        localAreaDensity,
+        numActiveColumnsPerInhArea,
+        stimulusThreshold,
+        synPermInactiveDec, synPermActiveInc,
+        synPermConnected, minPctOverlapDutyCycles,
+        dutyCyclePeriod, boostStrength,
+        seed, spVerbosity, wrapAround
+    );
 }
 
 extern void delete_spatialPooler(void * pooler) {

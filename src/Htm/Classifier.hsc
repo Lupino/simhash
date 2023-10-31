@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Htm.Classifier
@@ -12,11 +13,11 @@ module Htm.Classifier
 
 
 import           Control.Exception     (mask_)
+import           Foreign.C.Types
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Array (allocaArray, peekArray)
 import           Foreign.Ptr           (FunPtr, Ptr)
-import           Foreign.C.Types
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
 
 #include "sdr.h"

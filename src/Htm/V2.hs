@@ -76,7 +76,7 @@ loadV2 V2Opts {..} modelFile = do
     loadFromFile htmFile modelSp modelClsr modelEncoder modelEncSdr modelSpSdr labelHandle
   else do
     Encoder.initialize optEncoderOpts modelEncoder
-    SP.initialize (optSize optEncoderOpts) optColumnSize modelSp
+    SP.initialize (SP.params [optSize optEncoderOpts] [optColumnSize]) modelSp
     Sdr.initialize [optSize optEncoderOpts] modelEncSdr
     Sdr.initialize [optColumnSize] modelSpSdr
 

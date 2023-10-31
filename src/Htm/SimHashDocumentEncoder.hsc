@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
@@ -16,13 +17,13 @@ import           Control.Exception     (mask_)
 import           Data.Aeson            (FromJSON, parseJSON, withObject, (.!=),
                                         (.:?))
 import           Data.ByteString       (ByteString)
-import qualified Data.ByteString.Char8  as B (useAsCStringLen)
+import qualified Data.ByteString.Char8 as B (useAsCStringLen)
+import           Foreign.C.String      (CString)
+import           Foreign.C.Types
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 import           Foreign.Marshal.Utils (fromBool)
 import           Foreign.Ptr           (FunPtr, Ptr)
-import           Foreign.C.Types
-import           Foreign.C.String      (CString)
 import           Htm.Sdr               (CSdr, Sdr, withSdr)
 
 #include "sdr.h"

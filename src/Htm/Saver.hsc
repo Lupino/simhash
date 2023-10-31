@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Htm.Saver
@@ -7,20 +8,26 @@ module Htm.Saver
   ) where
 
 
-import qualified Data.Text        as T (intercalate, split, strip)
-import           Data.Text         (Text)
-import           Data.Text.Encoding (encodeUtf8, decodeUtf8)
-import qualified Data.ByteString.Char8  as B (useAsCStringLen, packCStringLen)
-import           Foreign.Ptr       (Ptr)
-import           Foreign.Marshal
+import qualified Data.ByteString.Char8      as B (packCStringLen,
+                                                  useAsCStringLen)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T (intercalate, split, strip)
+import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
+import           Foreign.C.String           (CString, withCStringLen)
 import           Foreign.C.Types
-import           Foreign.C.String
-import           Foreign.Storable
-import           Htm.SpatialPooler (CSpatialPooler, withSpatialPooler, SpatialPooler)
-import           Htm.Classifier    (CClassifier, withClassifier, Classifier)
-import           Htm.Sdr           (CSdr, withSdr, Sdr)
-import           Htm.SimHashDocumentEncoder (CSimHashDocumentEncoder, withSimHashDocumentEncoder, SimHashDocumentEncoder)
-import           UnliftIO         (TVar, atomically, readTVarIO, writeTVar)
+import           Foreign.Marshal.Alloc      (alloca, allocaBytes)
+import           Foreign.Ptr                (Ptr)
+import           Foreign.Storable           (peek)
+import           Htm.Classifier             (CClassifier, Classifier,
+                                             withClassifier)
+import           Htm.Sdr                    (CSdr, Sdr, withSdr)
+import           Htm.SimHashDocumentEncoder (CSimHashDocumentEncoder,
+                                             SimHashDocumentEncoder,
+                                             withSimHashDocumentEncoder)
+import           Htm.SpatialPooler          (CSpatialPooler, SpatialPooler,
+                                             withSpatialPooler)
+import           UnliftIO                   (TVar, atomically, readTVarIO,
+                                             writeTVar)
 
 #include "sdr.h"
 

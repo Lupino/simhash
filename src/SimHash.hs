@@ -67,7 +67,7 @@ doInferLearnTask "1" msg queue = do
     , itemRet   = Nothing
     , itemMsg   = encodeUtf8 str
     }
-  void $ workDone
+  void workDone
   where (label, str) = splitLabelAndMsg msg
 
 doInferLearnTask _ msg queue = do

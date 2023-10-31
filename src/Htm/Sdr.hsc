@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 module Htm.Sdr
   ( CSdr
@@ -13,9 +13,9 @@ import           Control.Exception     (mask_)
 import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
                                         withForeignPtr)
 
-import           Foreign.Ptr           (FunPtr, Ptr)
 import           Foreign.C.Types
 import           Foreign.Marshal.Array (withArray)
+import           Foreign.Ptr           (FunPtr, Ptr)
 
 
 #include "sdr.h"
