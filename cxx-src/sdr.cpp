@@ -5,66 +5,94 @@
 #include <htm/algorithms/SpatialPooler.hpp>
 #include <htm/types/Serializable.hpp>
 
-extern void * newCSdr(int dim) {
-   return new htm::SDR({(htm::UInt)dim});
+extern void * new_sdr() {
+    return new htm::SDR();
 }
 
-extern void deleteCSdr(void * sdr) {
-   htm::SDR * _sdr = (htm::SDR *)sdr;
-   delete _sdr;
+extern void delete_sdr(void * sdr) {
+    htm::SDR * _sdr = (htm::SDR *)sdr;
+    delete _sdr;
 }
 
-extern void * newCClassifier() {
+extern void sdr_initialize(int * dims, int dim_len, void * sdr) {
+    std::vector<htm::UInt> v_dims;
+    for (int i = 0; i < dim_len; i ++) {
+      v_dims.push_back((htm::UInt) dims[i]);
+    }
+
+    htm::SDR * _sdr = (htm::SDR *)sdr;
+    _sdr -> initialize(v_dims);
+}
+
+extern void * new_classifier() {
     return new htm::Classifier();
 }
-extern void deleteCClassifier(void * classifier) {
-    htm::Classifier * _classifier = (htm::Classifier *)classifier;
-    delete _classifier;
-}
-extern void cClassifierLearn(void * sdr, int cls, void * classifier) {
-    htm::Classifier * _classifier = (htm::Classifier *)classifier;
-    _classifier->learn(*(htm::SDR*)sdr, cls);
-}
-extern void cClassifierInfer(void * sdr, double* out, void * classifier) {
-    htm::Classifier * _classifier = (htm::Classifier *)classifier;
 
-    htm::PDF ret = _classifier->infer(*(htm::SDR*)sdr);
+extern void delete_classifier(void * clsr) {
+    htm::Classifier * _clsr = (htm::Classifier *)clsr;
+    delete _clsr;
+}
 
+extern void classifier_learn(void * sdr, int idx, void * clsr) {
+    htm::Classifier * _clsr = (htm::Classifier *)clsr;
+    _clsr->learn(*(htm::SDR*)sdr, idx);
+}
+
+extern void classifier_infer(void * sdr, double* out, void * clsr) {
+    htm::Classifier * _clsr = (htm::Classifier *)clsr;
+    htm::PDF ret = _clsr->infer(*(htm::SDR*)sdr);
     for (int i=0;i<ret.size();i++) {
         out[i] = ret[i];
     }
 }
 
-extern void * newCSimHashDocumentEncoder(int size, double sparsity, bool tokenSimilarity) {
-    htm::SimHashDocumentEncoderParameters params;
-    params.size = size;
-    params.sparsity = sparsity;
-    params.tokenSimilarity = tokenSimilarity;
-    return new htm::SimHashDocumentEncoder(params);
+extern void classifier_initialize(double alpha, void * clsr) {
+    htm::Classifier * _clsr = (htm::Classifier *)clsr;
+    _clsr->initialize((htm::Real)alpha);
 }
 
-extern void deleteCSimHashDocumentEncoder(void * encoder) {
+extern void * new_simHashDocumentEncoder() {
+    return new htm::SimHashDocumentEncoder();
+}
+
+extern void delete_simHashDocumentEncoder(void * encoder) {
     htm::SimHashDocumentEncoder * _encoder = (htm::SimHashDocumentEncoder *)encoder;
     delete _encoder;
 }
 
-extern void cSimHashDocumentEncoderEncode(char * bs, int len, void * sdr, void * encoder) {
+extern void simHashDocumentEncoder_initialize(int size, double sparsity, bool tokenSimilarity, void * encoder) {
+    htm::SimHashDocumentEncoderParameters params;
+    params.size = size;
+    params.sparsity = sparsity;
+    params.tokenSimilarity = tokenSimilarity;
+
+    htm::SimHashDocumentEncoder * _encoder = (htm::SimHashDocumentEncoder *)encoder;
+
+    _encoder->initialize(params);
+}
+
+extern void simHashDocumentEncoder_encode(char * bs, int len, void * sdr, void * encoder) {
     htm::SimHashDocumentEncoder * _encoder = (htm::SimHashDocumentEncoder *)encoder;
     std::string str(bs);
     str.resize(len);
     _encoder->encode(str, *(htm::SDR*) sdr);
 }
 
-extern void * newCSpatialPooler(int inputDim, int columnDim) {
-    return new htm::SpatialPooler({(htm::UInt)inputDim}, {(htm::UInt)columnDim});
+extern void * new_spatialPooler() {
+    return new htm::SpatialPooler();
 }
 
-extern void deleteCSpatialPooler(void * pooler) {
+extern void spatialPooler_initialize(int inputDim, int columnDim, void * pooler) {
+    htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
+    _pooler->initialize({(htm::UInt)inputDim}, {(htm::UInt)columnDim});
+}
+
+extern void delete_spatialPooler(void * pooler) {
     htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
     delete _pooler;
 }
 
-extern void cSpatialPoolerCompute(void * sdr, bool learn, void * active, void * pooler) {
+extern void spatialPooler_compute(void * sdr, bool learn, void * active, void * pooler) {
     htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
     _pooler->compute(*(const htm::SDR *)sdr, learn, *(htm::SDR*) active);
 }
@@ -78,12 +106,18 @@ class Saver : public Serializable {
   private:
     SpatialPooler * sp;
     Classifier * clsr;
+    SimHashDocumentEncoder * encoder;
+    SDR * sdr0;
+    SDR * sdr1;
     string * labels;
 
   public:
-    Saver(SpatialPooler * sp0, Classifier * clsr0, string *labels0) {
+    Saver(SpatialPooler * sp0, Classifier * clsr0, SimHashDocumentEncoder * encoder0, SDR * sdr00, SDR * sdr10, string *labels0) {
       sp = sp0;
       clsr = clsr0;
+      encoder = encoder0;
+      sdr0 = sdr00;
+      sdr1 = sdr10;
       labels = labels0;
     }
     CerealAdapter;
@@ -91,6 +125,9 @@ class Saver : public Serializable {
     void save_ar(Archive & ar) const {
       ar(cereal::make_nvp("sp", * sp));
       ar(cereal::make_nvp("clsr", * clsr));
+      ar(cereal::make_nvp("encoder", * encoder));
+      ar(cereal::make_nvp("sdr0", * sdr0));
+      ar(cereal::make_nvp("sdr1", * sdr1));
       ar(cereal::make_nvp("labels", * labels));
     }
 
@@ -98,6 +135,9 @@ class Saver : public Serializable {
     void load_ar(Archive & ar) {
       ar(cereal::make_nvp("sp", * sp));
       ar(cereal::make_nvp("clsr", * clsr));
+      ar(cereal::make_nvp("encoder", * encoder));
+      ar(cereal::make_nvp("sdr0", * sdr0));
+      ar(cereal::make_nvp("sdr1", * sdr1));
       ar(cereal::make_nvp("labels", * labels));
     }
 
@@ -105,22 +145,28 @@ class Saver : public Serializable {
 
 } // -ns
 
-extern void saveToFile(char * bs, int len, void * pooler, void * classifier, char *labels, int label_len) {
+extern void saveToFile(char * bs, int len, void * pooler, void * classifier, void * encoder, void * sdr0, void * sdr1, char *labels, int label_len) {
     htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
     htm::Classifier * _classifier = (htm::Classifier *)classifier;
+    htm::SimHashDocumentEncoder * _encoder = (htm::SimHashDocumentEncoder *)encoder;
+    htm::SDR * _sdr0 = (htm::SDR *)sdr0;
+    htm::SDR * _sdr1 = (htm::SDR *)sdr1;
     std::string str_labels(labels);
     str_labels.resize(label_len);
-    saver::Saver saver(_pooler, _classifier, &str_labels);
+    saver::Saver saver(_pooler, _classifier, _encoder, _sdr0, _sdr1, &str_labels);
     std::string fn(bs);
     fn.resize(len);
     saver.saveToFile(fn);
 }
 
-extern void loadFromFile(char * bs, int len, void * pooler, void * classifier, char *labels, int* label_len) {
+extern void loadFromFile(char * bs, int len, void * pooler, void * classifier, void * encoder, void * sdr0, void * sdr1, char *labels, int* label_len) {
     htm::SpatialPooler * _pooler = (htm::SpatialPooler *)pooler;
     htm::Classifier * _classifier = (htm::Classifier *)classifier;
+    htm::SimHashDocumentEncoder * _encoder = (htm::SimHashDocumentEncoder *)encoder;
+    htm::SDR * _sdr0 = (htm::SDR *)sdr0;
+    htm::SDR * _sdr1 = (htm::SDR *)sdr1;
     std::string str_labels;
-    saver::Saver saver(_pooler, _classifier, &str_labels);
+    saver::Saver saver(_pooler, _classifier, _encoder, _sdr0, _sdr1, &str_labels);
     std::string fn(bs);
     fn.resize(len);
     saver.loadFromFile(fn);

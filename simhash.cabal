@@ -34,7 +34,7 @@ library
                        cxx-src/htm.core/src/htm/utils/Random.cpp
                        -- cxx-src/htm.core/src/htm/utils/MovingAverage.cpp
                        cxx-src/htm.core/src/htm/utils/Topology.cpp
-                       cxx-src/htm.core/src/htm/utils/SdrMetrics.cpp
+                       -- cxx-src/htm.core/src/htm/utils/SdrMetrics.cpp
                        -- cxx-src/htm.core/src/htm/encoders/ScalarEncoder.cpp
                        cxx-src/htm.core/src/htm/encoders/SimHashDocumentEncoder.cpp
                        -- cxx-src/htm.core/src/htm/encoders/DateEncoder.cpp

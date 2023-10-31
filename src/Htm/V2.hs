@@ -23,8 +23,8 @@ import           Htm.SimHashDocumentEncoder (SimHashDocumentEncoder,
 import qualified Htm.SimHashDocumentEncoder as Encoder
 import           Htm.SpatialPooler          (SpatialPooler)
 import qualified Htm.SpatialPooler          as SP
-import           Htm.Utils                  (getLabelIdx, whenExists)
-import           System.Directory           (renameFile)
+import           Htm.Utils                  (getLabelIdx)
+import           System.Directory           (doesFileExist, renameFile)
 import           UnliftIO                   (TVar, newTVarIO)
 
 data V2 = V2
@@ -65,13 +65,20 @@ v2Opts = V2Opts
 loadV2 :: V2Opts -> FilePath -> IO V2
 loadV2 V2Opts {..} modelFile = do
   labelHandle <- newTVarIO []
-  modelEncoder <- Encoder.new optEncoderOpts
-  modelSp <- SP.new (optSize optEncoderOpts) optColumnSize
+  modelEncoder <- Encoder.new
+  modelSp <- SP.new
   modelClsr <- Clsr.new
-  modelEncSdr <- Sdr.new (optSize optEncoderOpts)
-  modelSpSdr <- Sdr.new optColumnSize
+  modelEncSdr <- Sdr.new
+  modelSpSdr <- Sdr.new
 
-  whenExists htmFile $ loadFromFile htmFile modelSp modelClsr labelHandle
+  exists <- doesFileExist htmFile
+  if exists then
+    loadFromFile htmFile modelSp modelClsr modelEncoder modelEncSdr modelSpSdr labelHandle
+  else do
+    Encoder.initialize optEncoderOpts modelEncoder
+    SP.initialize (optSize optEncoderOpts) optColumnSize modelSp
+    Sdr.initialize [optSize optEncoderOpts] modelEncSdr
+    Sdr.initialize [optColumnSize] modelSpSdr
 
   pure V2 {..}
 
@@ -80,7 +87,7 @@ loadV2 V2Opts {..} modelFile = do
 
 saveV2 :: V2 -> IO ()
 saveV2 V2 {..} = do
-  saveToFile htmFile1 modelSp modelClsr labelHandle
+  saveToFile htmFile1 modelSp modelClsr modelEncoder modelEncSdr modelSpSdr labelHandle
   renameFile htmFile1 htmFile
 
   where htmFile = modelFile

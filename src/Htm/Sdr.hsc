@@ -4,6 +4,7 @@ module Htm.Sdr
   ( CSdr
   , Sdr
   , new
+  , initialize
   , withSdr
   ) where
 
@@ -14,21 +15,30 @@ import           Foreign.ForeignPtr    (ForeignPtr, newForeignPtr,
 
 import           Foreign.Ptr           (FunPtr, Ptr)
 import           Foreign.C.Types
+import           Foreign.Marshal.Array (withArray)
+
 
 #include "sdr.h"
 
 data CSdr
 
-foreign import ccall "newCSdr" newCSdr :: CInt -> IO (Ptr CSdr)
-
-foreign import ccall "&deleteCSdr" deleteCSdr :: FunPtr (Ptr CSdr -> IO ())
+foreign import ccall "new_sdr" c_new_sdr :: IO (Ptr CSdr)
+foreign import ccall "&delete_sdr" c_delete_sdr :: FunPtr (Ptr CSdr -> IO ())
+foreign import ccall "sdr_initialize" c_sdr_initialize :: Ptr CInt -> CInt -> Ptr CSdr -> IO ()
 
 newtype Sdr = Sdr (ForeignPtr CSdr)
 
-new :: Int -> IO Sdr
-new dim = mask_ $ do
-  ptr <- newCSdr (fromIntegral dim)
-  Sdr <$> newForeignPtr deleteCSdr ptr
+new :: IO Sdr
+new = mask_ $ do
+  ptr <- c_new_sdr
+  Sdr <$> newForeignPtr c_delete_sdr ptr
 
 withSdr :: Sdr -> (Ptr CSdr -> IO a) -> IO a
 withSdr (Sdr fptr) = withForeignPtr fptr
+
+initialize :: [Int] -> Sdr -> IO ()
+initialize dims sdr =
+  withArray (map fromIntegral dims) $ \dimsPtr ->
+  withSdr sdr $ c_sdr_initialize dimsPtr len
+
+  where len = fromIntegral $ length dims

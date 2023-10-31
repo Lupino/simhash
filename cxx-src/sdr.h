@@ -7,26 +7,28 @@
 extern "C" {
 #endif
 
-extern void * newCSdr(int dim);
-extern void deleteCSdr(void * sdr);
+extern void * new_sdr();
+extern void delete_sdr(void * sdr);
+extern void sdr_initialize(int * dims, int dim_len, void * sdr);
 
-extern void * newCClassifier();
-extern void deleteCClassifier(void * classifier);
-extern void cClassifierLearn(void * sdr, int cls, void * classifier);
-extern void cClassifierInfer(void * sdr, double* ret, void * classifier);
+extern void * new_classifier();
+extern void delete_classifier(void * clsr);
+extern void classifier_learn(void * sdr, int idx, void * clsr);
+extern void classifier_infer(void * sdr, double* out, void * clsr);
+extern void classifier_initialize(double alpha, void * clsr);
 
+extern void * new_simHashDocumentEncoder();
+extern void delete_simHashDocumentEncoder(void * encoder);
+extern void simHashDocumentEncoder_initialize(int size, double sparsity, bool tokenSimilarity, void * encoder);
+extern void simHashDocumentEncoder_encode(char * bs, int len, void * sdr, void * encoder);
 
-extern void * newCSimHashDocumentEncoder(int size, double sparsity, bool tokenSimilarity);
-extern void deleteCSimHashDocumentEncoder(void * encoder);
-extern void cSimHashDocumentEncoderEncode(char * bs, int len, void * sdr, void * encoder);
+extern void * new_spatialPooler();
+extern void spatialPooler_initialize(int inputDim, int columnDim, void * pooler);
+extern void delete_spatialPooler(void * pooler);
+extern void spatialPooler_compute(void * sdr, bool learn, void * active, void * pooler);
 
-extern void * newCSpatialPooler(int inputDim, int columnDim);
-extern void deleteCSpatialPooler(void * pooler);
-extern void cSpatialPoolerCompute(void * sdr, bool learn, void * active, void * pooler);
-
-
-extern void saveToFile(char * bs, int len, void * pooler, void * classifier, char *labels, int label_len);
-extern void loadFromFile(char * bs, int len, void * pooler, void * classifier, char *labels, int *label_len);
+extern void saveToFile(char * bs, int len, void * pooler, void * classifier, void * encoder, void * sdr0, void * sdr1, char *labels, int label_len);
+extern void loadFromFile(char * bs, int len, void * pooler, void * classifier, void * encoder, void * sdr0, void * sdr1, char *labels, int *label_len);
 
 #ifdef __cplusplus
 }

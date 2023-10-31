@@ -4,6 +4,7 @@ module Htm.SpatialPooler
   ( CSpatialPooler
   , SpatialPooler
   , new
+  , initialize
   , withSpatialPooler
   , compute
   ) where
@@ -21,18 +22,18 @@ import           Htm.Sdr               (CSdr, Sdr, withSdr)
 
 data CSpatialPooler
 
-foreign import ccall "newCSpatialPooler" newCSpatialPooler :: CInt -> CInt -> IO (Ptr CSpatialPooler)
-foreign import ccall "&deleteCSpatialPooler" deleteCSpatialPooler :: FunPtr (Ptr CSpatialPooler -> IO ())
-foreign import ccall "cSpatialPoolerCompute" cSpatialPoolerCompute
+foreign import ccall "new_spatialPooler" c_new :: IO (Ptr CSpatialPooler)
+foreign import ccall "&delete_spatialPooler" c_delete :: FunPtr (Ptr CSpatialPooler -> IO ())
+foreign import ccall "spatialPooler_compute" c_compute
   :: Ptr CSdr -> CBool -> Ptr CSdr -> Ptr CSpatialPooler -> IO ()
-
+foreign import ccall "spatialPooler_initialize" c_initialize :: CInt -> CInt -> Ptr CSpatialPooler -> IO ()
 
 newtype SpatialPooler = SpatialPooler (ForeignPtr CSpatialPooler)
 
-new :: Int -> Int -> IO SpatialPooler
-new inputDim outputDim = mask_ $ do
-  ptr <- newCSpatialPooler (fromIntegral inputDim) (fromIntegral outputDim)
-  SpatialPooler <$> newForeignPtr deleteCSpatialPooler ptr
+new :: IO SpatialPooler
+new = mask_ $ do
+  ptr <- c_new
+  SpatialPooler <$> newForeignPtr c_delete ptr
 
 withSpatialPooler :: SpatialPooler -> (Ptr CSpatialPooler -> IO a) -> IO a
 withSpatialPooler (SpatialPooler fptr) = withForeignPtr fptr
@@ -41,5 +42,8 @@ compute :: Sdr -> Bool -> Sdr -> SpatialPooler -> IO ()
 compute input learn active sp =
   withSdr input $ \inputPtr ->
     withSdr active $ \activePtr ->
-      withSpatialPooler sp $
-        cSpatialPoolerCompute inputPtr (fromBool learn) activePtr
+      withSpatialPooler sp $ c_compute inputPtr (fromBool learn) activePtr
+
+initialize :: Int -> Int -> SpatialPooler -> IO ()
+initialize inputDim outputDim sp =
+  withSpatialPooler sp $ c_initialize (fromIntegral inputDim) (fromIntegral outputDim)

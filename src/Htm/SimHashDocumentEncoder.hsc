@@ -6,6 +6,7 @@ module Htm.SimHashDocumentEncoder
   , SimHashDocumentEncoder
   , SimHashDocumentEncoderOpts (..)
   , new
+  , initialize
   , withSimHashDocumentEncoder
   , encode
   ) where
@@ -27,11 +28,10 @@ import           Htm.Sdr               (CSdr, Sdr, withSdr)
 #include "sdr.h"
 
 data CSimHashDocumentEncoder
-
-foreign import ccall "newCSimHashDocumentEncoder" newCSimHashDocumentEncoder :: CInt -> CDouble -> CBool -> IO (Ptr CSimHashDocumentEncoder)
-foreign import ccall "&deleteCSimHashDocumentEncoder" deleteCSimHashDocumentEncoder :: FunPtr (Ptr CSimHashDocumentEncoder -> IO ())
-
-foreign import ccall "cSimHashDocumentEncoderEncode" cSimHashDocumentEncoderEncode
+foreign import ccall "new_simHashDocumentEncoder" c_new :: IO (Ptr CSimHashDocumentEncoder)
+foreign import ccall "&delete_simHashDocumentEncoder" c_delete :: FunPtr (Ptr CSimHashDocumentEncoder -> IO ())
+foreign import ccall "simHashDocumentEncoder_initialize" c_initialize :: CInt -> CDouble -> CBool -> (Ptr CSimHashDocumentEncoder) -> IO ()
+foreign import ccall "simHashDocumentEncoder_encode" c_encode
   :: CString -> CInt -> Ptr CSdr -> Ptr CSimHashDocumentEncoder -> IO ()
 
 newtype SimHashDocumentEncoder = SimHashDocumentEncoder (ForeignPtr CSimHashDocumentEncoder)
@@ -50,10 +50,10 @@ instance FromJSON SimHashDocumentEncoderOpts where
     optTokenSimilarity <- o .:? "token_similarity" .!= True
     return SimHashDocumentEncoderOpts {..}
 
-new :: SimHashDocumentEncoderOpts -> IO SimHashDocumentEncoder
-new SimHashDocumentEncoderOpts {..} = mask_ $ do
-  ptr <- newCSimHashDocumentEncoder (fromIntegral optSize) (realToFrac optSparsity) (fromBool optTokenSimilarity)
-  SimHashDocumentEncoder <$> newForeignPtr deleteCSimHashDocumentEncoder ptr
+new :: IO SimHashDocumentEncoder
+new = mask_ $ do
+  ptr <- c_new
+  SimHashDocumentEncoder <$> newForeignPtr c_delete ptr
 
 withSimHashDocumentEncoder :: SimHashDocumentEncoder -> (Ptr CSimHashDocumentEncoder -> IO a) -> IO a
 withSimHashDocumentEncoder (SimHashDocumentEncoder fptr) = withForeignPtr fptr
@@ -63,4 +63,10 @@ encode str sdr encoder =
   B.useAsCStringLen str $ \(cstr, len) ->
   withSdr sdr $ \sdrPtr ->
     withSimHashDocumentEncoder encoder $
-      cSimHashDocumentEncoderEncode cstr (fromIntegral len) sdrPtr
+      c_encode cstr (fromIntegral len) sdrPtr
+
+
+initialize :: SimHashDocumentEncoderOpts -> SimHashDocumentEncoder -> IO ()
+initialize SimHashDocumentEncoderOpts {..} encoder =
+  withSimHashDocumentEncoder encoder $
+    c_initialize (fromIntegral optSize) (realToFrac optSparsity) (fromBool optTokenSimilarity)
